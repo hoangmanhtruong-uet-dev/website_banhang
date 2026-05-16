@@ -23,12 +23,19 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/products?sortBy=rating&order=desc')
       .then(r => r.json())
-      .then(data => { setProducts(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(data => { 
+        setProducts(Array.isArray(data) ? data : []); 
+        setLoading(false); 
+      })
+      .catch(() => {
+        setProducts([]);
+        setLoading(false);
+      });
   }, []);
 
-  const featuredProducts = products.filter(p => p.badge === 'Hot' || p.badge === 'Bán chạy');
-  const saleProducts = products.filter(p => p.originalPrice);
+  const isProductsArray = Array.isArray(products);
+  const featuredProducts = isProductsArray ? products.filter(p => p.badge === 'Hot' || p.badge === 'Bán chạy') : [];
+  const saleProducts = isProductsArray ? products.filter(p => p.originalPrice) : [];
 
   return (
     <>

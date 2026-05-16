@@ -31,6 +31,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const session = await getSession();
 
     // Validate thông tin giao hàng
     const parsed = orderSchema.safeParse(body);
@@ -73,6 +74,7 @@ export async function POST(req: Request) {
         paymentMethod: parsed.data.paymentMethod,
         total,
         status: 'pending',
+        userId: session?.userId || null,
         orderItems: {
           create: orderItems,
         },

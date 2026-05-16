@@ -5,6 +5,11 @@ interface User {
   name: string;
   email: string;
   role: 'user' | 'admin';
+  isSeller: boolean;
+  phone?: string;
+  gender?: string;
+  birthday?: string;
+  avatar?: string;
 }
 
 interface AuthState {

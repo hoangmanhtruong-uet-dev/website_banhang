@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { categories } from '@/lib/mockData';
 import ProductCard from '@/components/product/ProductCard';
 import { useSearchParams } from 'next/navigation';
 import { Product } from '@/types/product';
@@ -12,6 +11,7 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState('default');
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>(['Tất cả']);
   const [loading, setLoading] = useState(true);
 
   const fetchProducts = useCallback(async () => {
@@ -37,6 +37,16 @@ export default function ProductsPage() {
       setLoading(false);
     }
   }, [selectedCategory, sortBy, searchQuery]);
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCategories(['Tất cả', ...data.map((c: any) => c.name)]);
+        }
+      });
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(fetchProducts, searchQuery ? 400 : 0);

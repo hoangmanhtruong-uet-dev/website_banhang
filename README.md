@@ -1,38 +1,125 @@
-# My E-commerce Website
+# 🛒 MTRUONG-STORE — Nền tảng Thương mại điện tử Full-Stack
 
-This is a Next.js e-commerce website.
+<div align="center">
+  <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js" />
+  <img src="https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript" />
+  <img src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma" />
+  <img src="https://img.shields.io/badge/MySQL-8-orange?style=for-the-badge&logo=mysql" />
+  <img src="https://img.shields.io/badge/Status-Active-green?style=for-the-badge" />
+</div>
 
-## Getting Started
+---
 
-First, run the development server:
+## ✨ Giới thiệu
 
+**MTRUONG-STORE** là một nền tảng thương mại điện tử hoàn chỉnh được xây dựng bằng **Next.js 14 (App Router)**, hỗ trợ hệ thống đa vai trò: **Khách hàng**, **Người bán** và **Quản trị viên**.
+
+## 🚀 Tính năng nổi bật
+
+### 🛍️ Dành cho Khách hàng
+- Duyệt sản phẩm theo danh mục, tìm kiếm & lọc
+- Giỏ hàng, đặt hàng và theo dõi đơn hàng
+- Quản lý hồ sơ: Ảnh đại diện, SĐT, Giới tính, Ngày sinh
+- Quản lý địa chỉ giao hàng & thông tin ngân hàng
+- Kho Voucher cá nhân
+
+### 🏪 Dành cho Người bán (Seller Center)
+- Đăng ký trở thành người bán chỉ 1 click
+- Dashboard thống kê: Doanh thu, Đơn hàng, Đánh giá
+- Quản lý sản phẩm: Thêm, sửa, xóa sản phẩm
+- Quản lý đơn hàng của gian hàng
+- Tạo chương trình khuyến mãi (Voucher)
+- Hồ sơ shop tùy chỉnh
+
+### ⚙️ Dành cho Quản trị viên (Admin Panel)
+- Dashboard thống kê toàn hệ thống (dữ liệu thực từ DB)
+- Quản lý người dùng & Phân quyền (RBAC): Admin, Editor, Sale, Warehouse
+- Quản lý sản phẩm toàn sàn (kiểm duyệt, gỡ bỏ)
+- Quản lý kho hàng với cảnh báo hàng sắp hết
+- Quản lý đơn hàng: Đổi trạng thái toàn bộ vòng đời đơn
+- Marketing: Phát hành mã Voucher toàn sàn
+- Báo cáo doanh thu & Phân tích dữ liệu
+- Cấu hình hệ thống: Cổng thanh toán, Bảo mật, Sao lưu
+
+---
+
+## 🛠️ Công nghệ sử dụng
+
+| Layer | Công nghệ |
+|-------|-----------|
+| **Frontend** | Next.js 14 (App Router), React, TypeScript |
+| **Styling** | Vanilla CSS (Glassmorphism, Dark Mode) |
+| **Backend** | Next.js API Routes (REST API) |
+| **Database** | MySQL + Prisma ORM |
+| **Auth** | JWT (jose) + bcryptjs |
+| **State** | Zustand |
+
+---
+
+## ⚡ Cài đặt & Chạy dự án
+
+### 1. Clone repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/YOUR_USERNAME/mtruong-store.git
+cd mtruong-store
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Cài đặt dependencies
+```bash
+npm install
+```
 
-You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Cấu hình biến môi trường
+```bash
+cp .env.example .env
+```
+Mở file `.env` và điền thông tin database MySQL của bạn.
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+### 4. Đồng bộ database
+```bash
+npx prisma db push
+npx prisma db seed
+```
 
-## Learn More
+### 5. Khởi động server
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Truy cập: `http://localhost:3000`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+## 🗂️ Cấu trúc thư mục
 
-## Deploy on Vercel
+```
+src/
+├── app/
+│   ├── (admin)/admin/       # Khu vực quản trị Admin
+│   ├── (seller)/seller/     # Kênh người bán
+│   ├── (shop)/              # Trang mua sắm
+│   └── api/                 # REST API endpoints
+├── components/
+│   ├── admin/               # Components cho Admin
+│   ├── seller/              # Components cho Seller
+│   ├── profile/             # Components hồ sơ
+│   └── ui/                  # Components dùng chung
+├── lib/                     # Utilities (auth, db, validations)
+├── store/                   # Zustand state management
+└── styles/                  # Global CSS
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+## 👤 Tài khoản mặc định (sau khi seed)
+
+| Vai trò | Email | Mật khẩu |
+|---------|-------|-----------|
+| Admin | admin@mtruong.store | admin123 |
+| User | user@mtruong.store | user123 |
+
+---
+
+## 📄 License
+
+MIT License © 2026 MTRUONG-STORE

@@ -4,7 +4,8 @@ export const productSchema = z.object({
   name: z.string().min(2, 'Tên sản phẩm phải có ít nhất 2 ký tự'),
   price: z.number().positive('Giá phải lớn hơn 0'),
   description: z.string().min(10, 'Mô tả phải có ít nhất 10 ký tự'),
-  category: z.string().min(1, 'Vui lòng chọn danh mục'),
+  categoryId: z.string().min(1, 'Vui lòng chọn danh mục'),
+  image: z.string().optional().nullable(),
 });
 
 export const orderSchema = z.object({

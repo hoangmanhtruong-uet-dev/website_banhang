@@ -1,0 +1,40 @@
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/db';
+import { getSession } from '@/lib/auth';
+
+export async function GET() {
+  try {
+    const session = await getSession();
+    if (!session || !session.isSeller) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Tìm các OrderItem chứa sản phẩm của Seller này
+    const orders = await prisma.order.findMany({
+      where: {
+        items: {
+          some: {
+            product: {
+              sellerId: session.userId
+            }
+          }
+        }
+      },
+      include: {
+        user: { select: { name: true, email: true } },
+        items: {
+          where: {
+            product: { sellerId: session.userId }
+          },
+          include: { product: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return NextResponse.json(orders);
+  } catch (error) {
+    console.error('[SELLER_ORDERS_GET]', error);
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
+  }
+}

@@ -12,17 +12,23 @@ export async function GET(req: Request) {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
-    const where: {category?: string; name?: {contains: string}} = {};
-    if (category && category !== 'Tất cả') where.category = category;
+    const where: any = {};
+    if (category && category !== 'Tất cả') {
+      where.categoryRef = { name: category };
+    }
     if (search) where.name = { contains: search };
 
     const validSortFields = ['price', 'rating', 'name', 'createdAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
+    console.time('DB_Query_Products');
     const products = await prisma.product.findMany({
       where,
       orderBy: { [sortField]: order as 'asc' | 'desc' },
+      include: { categoryRef: true },
+      take: 20, // Giới hạn lấy 20 cái cho nhanh
     });
+    console.timeEnd('DB_Query_Products');
 
     return NextResponse.json(products);
   } catch (error) {
@@ -51,7 +57,8 @@ export async function POST(req: Request) {
         price: body.price,
         originalPrice: body.originalPrice ?? null,
         description: body.description,
-        category: body.category,
+        categoryId: body.categoryId,
+        image: body.image ?? null,
         emoji: body.emoji ?? '📦',
         gradient: body.gradient ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         badge: body.badge ?? null,

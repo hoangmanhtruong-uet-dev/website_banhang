@@ -31,7 +31,7 @@ export default function Navbar() {
           Sản phẩm
         </Link>
         {isAdmin && (
-          <Link href="/admin/dashboard" style={{ fontSize:'14px', color:'var(--text-secondary)', transition:'color 0.2s' }}
+          <Link href="/admin" style={{ fontSize:'14px', color:'var(--text-secondary)', transition:'color 0.2s' }}
             onMouseEnter={e=>(e.target as HTMLElement).style.color='var(--accent)'}
             onMouseLeave={e=>(e.target as HTMLElement).style.color='var(--text-secondary)'}>
             Quản trị
@@ -68,6 +68,17 @@ export default function Navbar() {
                 borderRadius:'var(--radius-md)', padding:'8px', minWidth:'160px',
                 boxShadow:'0 8px 32px rgba(0,0,0,0.4)', zIndex:10,
               }}>
+                <Link href="/profile" onClick={() => setMenuOpen(false)}
+                  style={{
+                    display:'block', width:'100%', padding:'10px 16px', color:'var(--text-secondary)',
+                    textDecoration:'none', fontSize:'14px', borderRadius:'var(--radius-sm)',
+                    transition:'background 0.2s',
+                  }}
+                  onMouseEnter={e=>(e.target as HTMLElement).style.background='rgba(255,255,255,0.05)'}
+                  onMouseLeave={e=>(e.target as HTMLElement).style.background='transparent'}>
+                  👤 Hồ sơ của tôi
+                </Link>
+                <div style={{ height:'1px', background:'var(--border)', margin:'4px 0' }} />
                 <button onClick={() => { logout(); setMenuOpen(false); }}
                   style={{
                     width:'100%', padding:'10px 16px', background:'transparent',
@@ -77,7 +88,7 @@ export default function Navbar() {
                   }}
                   onMouseEnter={e=>(e.target as HTMLElement).style.background='rgba(239,68,68,0.1)'}
                   onMouseLeave={e=>(e.target as HTMLElement).style.background='transparent'}>
-                  Đăng xuất
+                  🚪 Đăng xuất
                 </button>
               </div>
             )}

@@ -32,6 +32,7 @@ logs
 # Database
 *.db
 *.sqlite
+*.db-journal
 
 # Build outputs
 dist/

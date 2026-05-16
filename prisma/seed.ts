@@ -82,9 +82,11 @@ async function main() {
   console.log('🌱 Bắt đầu seed database...');
 
   // Xóa data cũ
+  await prisma.review.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.product.deleteMany();
+  await prisma.category.deleteMany();
   await prisma.user.deleteMany();
 
   // Tạo admin user
@@ -111,9 +113,29 @@ async function main() {
   });
   console.log(`✅ Tạo user: ${user.email} / User@123456`);
 
+  // Tạo categories
+  const categoriesData = ['Thời trang', 'Công nghệ', 'Làm đẹp', 'Gia dụng'];
+  const categoryMap: Record<string, string> = {};
+  for (const catName of categoriesData) {
+    const cat = await prisma.category.create({
+      data: {
+        name: catName,
+        slug: catName.toLowerCase().replace(/ /g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
+      }
+    });
+    categoryMap[catName] = cat.id;
+  }
+  console.log(`✅ Tạo ${categoriesData.length} danh mục`);
+
   // Tạo products
   for (const product of products) {
-    await prisma.product.create({ data: product });
+    const { category, ...rest } = product;
+    await prisma.product.create({ 
+      data: {
+        ...rest,
+        categoryId: categoryMap[category],
+      } 
+    });
   }
   console.log(`✅ Tạo ${products.length} sản phẩm`);
 

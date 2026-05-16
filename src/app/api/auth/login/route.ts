@@ -36,12 +36,13 @@ export async function POST(req: Request) {
       userId: user.id,
       email: user.email,
       role: user.role,
+      isSeller: user.isSeller,
       name: user.name,
     });
 
     const response = NextResponse.json({
       message: 'Đăng nhập thành công',
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, isSeller: user.isSeller },
     });
 
     // Set HTTP-only cookie

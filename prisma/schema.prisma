@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -13,9 +13,65 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      String   @default("user") // "user" | "admin"
+  role      String   @default("user") // "user" | "admin" | "editor" | "sale" | "warehouse"
+  isSeller  Boolean  @default(false)
+  phone     String?
+  gender    String?  // "male" | "female" | "other"
+  birthday  DateTime?
+  avatar    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  reviews   Review[]
+  orders    Order[]
+  products  Product[] @relation("UserProducts")
+  addresses Address[]
+  bankInfos BankInfo[]
+  vouchers  Voucher[]
+}
+
+model Voucher {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  description   String?
+  discountType  String    // "percentage" | "fixed"
+  discountValue Float
+  minOrderValue Float     @default(0)
+  maxDiscount   Float?
+  startDate     DateTime  @default(now())
+  endDate       DateTime
+  usageLimit    Int       @default(100)
+  usedCount     Int       @default(0)
+  sellerId      String
+  seller        User      @relation(fields: [sellerId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Address {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName        String
+  phone           String
+  province        String
+  district        String
+  ward            String
+  detailAddress   String
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BankInfo {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankName      String
+  accountNumber String
+  accountName   String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Product {
@@ -27,14 +83,42 @@ model Product {
   image         String?
   emoji         String?
   gradient      String?
-  category      String?
+  categoryId    String?
+  categoryRef   Category?   @relation(fields: [categoryId], references: [id])
   badge         String?
   rating        Float       @default(0)
-  reviews       Int         @default(0)
+  reviews       Int         @default(0) // Legacy count
   inStock       Boolean     @default(true)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   orderItems    OrderItem[]
+  reviewsData   Review[]
+  sellerId      String?
+  seller        User?       @relation("UserProducts", fields: [sellerId], references: [id])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?
+  userId    String
+  productId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId]) // 1 user = 1 review per product
 }
 
 model Order {
@@ -46,6 +130,8 @@ model Order {
   paymentMethod   String
   total           Float
   status          String      @default("pending")
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   orderItems      OrderItem[]
