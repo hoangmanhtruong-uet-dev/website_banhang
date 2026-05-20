@@ -33,16 +33,16 @@ export async function PUT(req: Request, { params }: Params) {
     const product = await prisma.product.update({
       where: { id },
       data: {
-        name: body.name,
-        price: body.price,
-        originalPrice: body.originalPrice ?? null,
-        description: body.description,
-        categoryId: body.categoryId,
-        emoji: body.emoji,
-        badge: body.badge ?? null,
-        rating: body.rating,
-        reviews: body.reviews,
-        inStock: body.inStock,
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.price !== undefined && { price: body.price }),
+        ...(body.originalPrice !== undefined && { originalPrice: body.originalPrice }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.categoryId !== undefined && { categoryId: body.categoryId }),
+        ...(body.emoji !== undefined && { emoji: body.emoji }),
+        ...(body.badge !== undefined && { badge: body.badge }),
+        ...(body.rating !== undefined && { rating: body.rating }),
+        ...(body.reviews !== undefined && { reviews: body.reviews }),
+        ...(body.inStock !== undefined && { inStock: body.inStock }),
       },
     });
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { generateNextProductId } from '@/lib/idGenerator';
 
 export async function POST(req: Request) {
   try {
@@ -11,8 +12,13 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     
+    const code = await generateNextProductId();
+    const slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
+
     const product = await prisma.product.create({
       data: {
+        code,
+        slug,
         name: body.name,
         price: body.price,
         originalPrice: body.originalPrice,

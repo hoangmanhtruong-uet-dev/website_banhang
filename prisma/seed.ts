@@ -3,6 +3,24 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+// Helper function to generate slug from Vietnamese text
+function generateSlug(text: string, index?: number): string {
+  let slug = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .trim()
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+
+  if (index !== undefined) {
+    slug = `${slug}-${index}`;
+  }
+  return slug;
+}
+
 const products = [
   {
     name: 'Áo Khoác Denim Premium', price: 1290000, originalPrice: 1890000,
@@ -78,6 +96,71 @@ const products = [
   },
 ];
 
+// Function to generate 200 products
+function generateProducts() {
+  const categories = ['Thời trang', 'Công nghệ', 'Làm đẹp', 'Gia dụng'];
+  const emojis = ['👔', '👗', '👠', '🧢', '💄', '💅', '🎮', '📱', '🖥️', '⌨️', '🖱️', '🎧', '📷', '🔊', '🌟', '✨', '💎', '⚡', '🔥', '❄️'];
+  const badges = ['Hot', 'Sale', 'Mới', 'Bán chạy', 'Premium', null];
+  const gradients = [
+    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+  ];
+
+  const productNames = [
+    'Quần Jeans Slim Fit', 'Áo Sơ Mi Oxford', 'Váy Xòe Lưới', 'Chân Váy Midi', 'Quần Short Kaki',
+    'Áo Polo Cotton', 'Áo Sweater Nỉ', 'Áo Cardigan Len', 'Áo Croptop Bé Gái', 'Quần Jogger Thể Thao',
+    'Điện Thoại Xiaomi 14', 'Máy Tính Bảng iPad Pro', 'Camera Sony A6700', 'Loa Bluetooth JBL', 'Ốp Lưng Innostyle',
+    'Sạc Nhanh USB-C', 'Cáp Lightning Chính Hãng', 'Pin Dự Phòng 20000mAh', 'Ốp Lưng Kính Cường Lực', 'Bao Da Điện Thoại',
+    'Kem Chống Nắng SPF 50', 'Mặt Nạ Giấy Dưỡng Ẩm', 'Toner Cân Bằng Da', 'Sữa Rửa Mặt Tạo Bọt', 'Kem Dưỡng Ẩm Ban Đêm',
+    'Mascara Waterproof', 'Phấn Mắt Shimmer', 'Son Lì Môi Đỏ', 'Kem Má Hồng Đất', 'Tẩy Trang Tinh Dầu',
+    'Chăn Mềm Mại', 'Gối Cao Su Non', 'Nệm Memory Foam', 'Drap Giường Cotton', 'Vỏ Gối Lụa',
+    'Bàn Phím Cơ RGB', 'Chuột Gaming Wireless', 'Màn Hình Cong 144Hz', 'Ghế Gaming DXRacer', 'Đế Tản Nhiệt Laptop',
+    'Mũ Thể Thao Adidas', 'Dép Quai Ngang Comfy', 'Tất Socks Cotton', 'Khăn Ăn Vải Premium', 'Thắt Lưng Da Bò',
+    'Túi Xách Công Sở', 'Ví Da Nam Cao Cấp', 'Dây Chuyền Bạc Sterling', 'Vòng Tay Đá Tự Nhiên', 'Nhẫn Bạc Khắc',
+  ];
+
+  const descriptions = [
+    'Sản phẩm chất lượng cao với thiết kế hiện đại, đáp ứng nhu cầu hàng ngày.',
+    'Được làm từ chất liệu tốt nhất, thoải mái và bền durable.',
+    'Thiết kế xu hướng mới nhất, phù hợp cho mọi lứa tuổi.',
+    'Sản phẩm bán chạy hàng đầu với nhiều đánh giá tích cực.',
+    'Chất lượng premium với giá cả hợp lý, đáng để mua.',
+    'Được yêu thích bởi hàng ngàn khách hàng trên toàn quốc.',
+    'Thiết kế độc quyền, không bị lặp ở nơi khác.',
+    'Sản phẩm thân thiện với môi trường, bền vững lâu dài.',
+  ];
+
+  const newProducts = [];
+  for (let i = 0; i < 200; i++) {
+    const nameIndex = i % productNames.length;
+    const categoryIndex = i % categories.length;
+    const price = Math.floor(Math.random() * (30000000 - 100000) + 100000) * 1000;
+    const hasDiscount = Math.random() > 0.4;
+    
+    newProducts.push({
+      name: `${productNames[nameIndex]} ${i + 1}`,
+      price: price,
+      originalPrice: hasDiscount ? price + Math.floor(Math.random() * 10000000 * 100) / 100 : null,
+      description: descriptions[Math.floor(Math.random() * descriptions.length)],
+      category: categories[categoryIndex],
+      rating: parseFloat((Math.random() * 2 + 3).toFixed(1)), // 3.0 - 5.0
+      reviews: Math.floor(Math.random() * 500),
+      inStock: Math.random() > 0.1,
+      badge: badges[Math.floor(Math.random() * badges.length)],
+      emoji: emojis[Math.floor(Math.random() * emojis.length)],
+      gradient: gradients[Math.floor(Math.random() * gradients.length)],
+    });
+  }
+  return newProducts;
+}
+
+const generatedProducts = generateProducts();
+const allProducts = [...products, ...generatedProducts];
+
 async function main() {
   console.log('🌱 Bắt đầu seed database...');
 
@@ -89,29 +172,43 @@ async function main() {
   await prisma.category.deleteMany();
   await prisma.user.deleteMany();
 
+  let userCount = 0;
+  let adminCount = 0;
+  let productCount = 0;
+
   // Tạo admin user
-  const adminPassword = await bcrypt.hash('Admin@123456', 12);
+  const adminPassword = await bcrypt.hash('123456', 12);
+  adminCount++;
   const admin = await prisma.user.create({
     data: {
+      code: `AD${String(adminCount).padStart(3, '0')}`,
       name: 'Admin',
-      email: 'admin@mtruong.store',
+      email: 'truongcri0101@gmail.com',
       password: adminPassword,
       role: 'admin',
+      phone: '0868544769',
+      gender: 'male',
+      birthday: new Date('2007-01-01'),
     },
   });
-  console.log(`✅ Tạo admin: ${admin.email} / Admin@123456`);
+  console.log(`✅ Tạo admin: ${admin.email} (${admin.code}) / 123456`);
 
   // Tạo test user
   const userPassword = await bcrypt.hash('User@123456', 12);
+  userCount++;
   const user = await prisma.user.create({
     data: {
+      code: `US${String(userCount).padStart(3, '0')}`,
       name: 'Test User',
       email: 'user@mtruong.store',
       password: userPassword,
       role: 'user',
+      phone: '0123456789',
+      gender: 'female',
+      birthday: new Date('1990-05-15'),
     },
   });
-  console.log(`✅ Tạo user: ${user.email} / User@123456`);
+  console.log(`✅ Tạo user: ${user.email} (${user.code}) / User@123456`);
 
   // Tạo categories
   const categoriesData = ['Thời trang', 'Công nghệ', 'Làm đẹp', 'Gia dụng'];
@@ -128,20 +225,24 @@ async function main() {
   console.log(`✅ Tạo ${categoriesData.length} danh mục`);
 
   // Tạo products
-  for (const product of products) {
+  for (const product of allProducts) {
     const { category, ...rest } = product;
+    productCount++;
     await prisma.product.create({ 
       data: {
         ...rest,
+        code: `PR${String(productCount).padStart(3, '0')}`,
+        slug: generateSlug(product.name),
         categoryId: categoryMap[category],
       } 
     });
   }
-  console.log(`✅ Tạo ${products.length} sản phẩm`);
+  console.log(`✅ Tạo ${allProducts.length} sản phẩm`);
 
   console.log('\n🎉 Seed hoàn thành!');
-  console.log('📧 Admin:  admin@mtruong.store / Admin@123456');
-  console.log('📧 User:   user@mtruong.store  / User@123456');
+  console.log('📧 Admin:  truongcri0101@gmail.com (AD001) / 123456');
+  console.log('📧 User:   user@mtruong.store (US001) / User@123456');
+  console.log(`📦 Tổng sản phẩm: ${allProducts.length} (PR001 - PR${String(allProducts.length).padStart(3, '0')})`);
 }
 
 main()

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '@/lib/db';
 import { signToken } from '@/lib/auth';
 import { registerSchema } from '@/lib/validations';
+import { generateNextUserId } from '@/lib/idGenerator';
 
 export async function POST(req: Request) {
   try {
@@ -28,9 +29,12 @@ export async function POST(req: Request) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Generate code
+    const code = await generateNextUserId('user');
+
     // Tạo user
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword, role: 'user' },
+      data: { name, email, password: hashedPassword, role: 'user', code },
     });
 
     // Tạo JWT
@@ -39,6 +43,7 @@ export async function POST(req: Request) {
       email: user.email,
       role: user.role,
       name: user.name,
+      isSeller: user.isSeller,
     });
 
     const response = NextResponse.json(

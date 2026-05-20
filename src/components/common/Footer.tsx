@@ -1,6 +1,11 @@
 'use client';
+import { usePathname } from 'next/navigation';
 
 export default function Footer() {
+  const pathname = usePathname();
+  
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/seller')) return null;
+
   return (
     <footer style={{
       background:'var(--bg-secondary)', borderTop:'1px solid var(--border)',

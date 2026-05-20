@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function Navbar() {
+  const pathname = usePathname();
   const itemCount = useCartStore(s => s.getItemCount());
   const { isAuthenticated, isLoading, user, logout, fetchMe } = useAuthStore();
   const isAdmin = user?.role === 'admin';
@@ -14,6 +16,8 @@ export default function Navbar() {
   useEffect(() => {
     fetchMe();
   }, [fetchMe]);
+
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/seller')) return null;
 
   return (
     <nav className="navbar">

@@ -1,10 +1,23 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { formatPrice } from '@/lib/utils';
-import { Order } from '@/types/order';
+interface OrderItemData {
+  id: string;
+  quantity: number;
+  price: number;
+  product: { name: string; emoji: string; gradient: string; };
+}
+
+interface OrderData {
+  id: string;
+  status: string;
+  total: number;
+  createdAt: string;
+  orderItems: OrderItemData[];
+}
 
 export default function UserOrdersPage() {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,7 +87,7 @@ export default function UserOrdersPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-                {order.orderItems.map((item: any) => (
+                {order.orderItems.map((item: OrderItemData) => (
                   <div key={item.id} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                     <div style={{ 
                       width: '48px', height: '48px', borderRadius: '8px', 

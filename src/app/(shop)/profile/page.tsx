@@ -15,7 +15,15 @@ export default function ProfilePage() {
     phone: '',
     gender: '',
     birthday: '',
+    avatar: undefined as string | undefined,
   });
+
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [fileInputEl, setFileInputEl] = useState<HTMLInputElement | null>(null);
+
+  const openFilePicker = () => {
+    fileInputEl?.click();
+  };
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -26,7 +34,9 @@ export default function ProfilePage() {
         phone: user.phone || '',
         gender: user.gender || 'male',
         birthday: user.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '',
+        avatar: user.avatar,
       });
+      setAvatarPreview(null);
     }
   }, [user]);
 
@@ -34,10 +44,19 @@ export default function ProfilePage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        gender: formData.gender,
+        birthday: formData.birthday ? new Date(formData.birthday).toISOString() : null,
+        ...(formData.avatar ? { avatar: formData.avatar } : {}),
+      };
+
       const res = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -60,7 +79,8 @@ export default function ProfilePage() {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '40px' }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
             {/* Tên đăng nhập */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <label style={{ width: '150px', fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>Tên đăng nhập</label>
@@ -125,7 +145,12 @@ export default function ProfilePage() {
             </div>
 
             <div style={{ paddingLeft: '150px', marginTop: '10px' }}>
-              <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '12px 30px' }}>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={loading}
+                style={{ padding: '12px 30px' }}
+              >
                 {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>
@@ -133,15 +158,74 @@ export default function ProfilePage() {
 
           {/* Avatar Upload Side */}
           <div style={{ width: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '40px' }}>
-            <div style={{ 
-              width: '100px', height: '100px', borderRadius: '50%', 
-              background: 'rgba(255,255,255,0.05)', display: 'flex', 
-              alignItems: 'center', justifyContent: 'center', fontSize: '40px',
-              marginBottom: '20px', border: '2px dashed rgba(255,255,255,0.2)'
-            }}>
-              {user?.avatar ? <img src={user.avatar} style={{ width:'100%', height:'100%', borderRadius:'50%' }} /> : '👤'}
+            <div
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.05)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '40px',
+                marginBottom: '20px',
+                border: '2px dashed rgba(255,255,255,0.2)',
+                overflow: 'hidden',
+              }}
+            >
+              {avatarPreview ? (
+                <img src={avatarPreview} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : user?.avatar ? (
+                <img src={user.avatar} style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit: 'cover' }} />
+              ) : (
+                '👤'
+              )}
             </div>
-            <button type="button" className="btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }}>Chọn ảnh</button>
+
+            <input
+              ref={(el) => setFileInputEl(el)}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                if (file.size > 1024 * 1024) {
+                  addToast('Dung lượng ảnh tối đa 1MB');
+                  e.target.value = '';
+                  return;
+                }
+
+                setAvatarPreview(URL.createObjectURL(file));
+                setFormData((prev) => ({ ...prev, avatar: undefined }));
+
+                (async () => {
+                  try {
+                    const fd = new FormData();
+                    fd.append('file', file);
+
+                    const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+                    const upData = await upRes.json();
+
+                    if (!upRes.ok) {
+                      addToast('Upload ảnh thất bại');
+                      return;
+                    }
+
+                    setFormData((prev) => ({ ...prev, avatar: upData.url }));
+                    addToast('Đã chọn ảnh thành công');
+                  } catch {
+                    addToast('Lỗi upload ảnh');
+                  }
+                })();
+              }}
+            />
+
+            <button type="button" className="btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }} onClick={openFilePicker}>
+              Chọn ảnh
+            </button>
+
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '15px' }}>
               Dung lượng file tối đa 1 MB<br />Định dạng: .JPEG, .PNG
             </p>
