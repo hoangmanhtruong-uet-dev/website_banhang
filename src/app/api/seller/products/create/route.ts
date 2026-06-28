@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession, canAccessSeller } from '@/lib/auth';
 import { generateNextProductId } from '@/lib/idGenerator';
 
 export async function POST(req: Request) {
   try {
     const session = await getSession();
-    if (!session || !session.isSeller) {
+    if (!session || !canAccessSeller(session)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -15,7 +15,10 @@ export async function POST(req: Request) {
     const code = await generateNextProductId();
     const slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
 
-    const product = await prisma.product.create({
+    const imageUrls = Array.isArray(body.images) ? body.images : [];
+    const mainImage = imageUrls.length > 0 ? imageUrls[0] : null;
+
+    const product = await (prisma.product.create as any)({
       data: {
         code,
         slug,
@@ -30,6 +33,13 @@ export async function POST(req: Request) {
         sellerId: session.userId, // Gắn ID người bán
         rating: 5, // Sản phẩm mới mặc định 5 sao
         reviews: 0,
+        image: mainImage,
+        images: {
+          create: imageUrls.map((url: string) => ({ url })),
+        },
+      },
+      include: {
+        images: true,
       },
     });
 

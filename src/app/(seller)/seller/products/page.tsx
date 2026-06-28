@@ -2,11 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
-import { formatPrice } from '@/lib/utils';
 import Link from 'next/link';
+import { formatPrice } from '@/lib/utils';
 
 export default function SellerProductsPage() {
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const addToast = useToastStore(s => s.addToast);
 
@@ -41,8 +41,13 @@ export default function SellerProductsPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800 }}>Quản Lý Sản Phẩm</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Danh sách toàn bộ sản phẩm bạn đang kinh doanh trên MTruong-Store.</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div>
+              <h1 style={{ fontSize: '28px', fontWeight: 800 }}>Quản Lý Sản Phẩm</h1>
+              <p style={{ color: 'var(--text-muted)' }}>Danh sách toàn bộ sản phẩm bạn đang kinh doanh trên MTruong-Store.</p>
+            </div>
+            <Link href="/seller" className="btn-primary" style={{ padding: '8px 16px' }}>🏠 Home</Link>
+          </div>
         </div>
         <Link href="/seller/products/new" className="btn-primary" style={{ padding: '12px 24px', textDecoration: 'none' }}>
           ➕ Đăng sản phẩm mới
@@ -56,7 +61,7 @@ export default function SellerProductsPage() {
               <th style={{ padding: '20px', textAlign: 'left', fontSize: '13px', color: 'var(--text-muted)' }}>SẢN PHẨM</th>
               <th style={{ padding: '20px', textAlign: 'left', fontSize: '13px', color: 'var(--text-muted)' }}>DANH MỤC</th>
               <th style={{ padding: '20px', textAlign: 'left', fontSize: '13px', color: 'var(--text-muted)' }}>GIÁ BÁN</th>
-              <th style={{ padding: '20px', textAlign: 'left', fontSize: '13px', color: 'var(--text-muted)' }}>KHO</th>
+              <th style={{ padding: '20px', textAlign: 'left', fontSize: '13px', color: 'var(--text-muted)' }}>ĐÃ BÁN</th>
               <th style={{ padding: '20px', textAlign: 'right', fontSize: '13px', color: 'var(--text-muted)' }}>THAO TÁC</th>
             </tr>
           </thead>
@@ -86,9 +91,7 @@ export default function SellerProductsPage() {
                   {p.originalPrice && <span style={{ fontSize: '11px', textDecoration: 'line-through', color: 'var(--text-muted)' }}>{formatPrice(p.originalPrice)}</span>}
                 </td>
                 <td style={{ padding: '20px' }}>
-                  <span style={{ padding: '4px 10px', borderRadius: '20px', background: p.inStock ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: p.inStock ? '#10b981' : '#ef4444', fontSize: '12px', fontWeight: 600 }}>
-                    {p.inStock ? 'Sẵn sàng' : 'Hết hàng'}
-                  </span>
+                  {p.soldQuantity ?? 0}
                 </td>
                 <td style={{ padding: '20px', textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>

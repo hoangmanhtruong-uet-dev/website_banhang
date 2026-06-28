@@ -31,6 +31,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Email hoặc mật khẩu không đúng' }, { status: 401 });
     }
 
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.' },
+        { status: 403 }
+      );
+    }
+
     // Tạo JWT
     const token = await signToken({
       userId: user.id,

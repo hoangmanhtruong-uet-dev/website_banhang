@@ -9,16 +9,21 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { status } = await req.json();
+    const { status, trackingNumber } = await req.json();
     const validStatus = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
     
     if (!validStatus.includes(status)) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 });
     }
 
+    const updateData: { status: string; trackingNumber?: string } = { status };
+    if (trackingNumber && typeof trackingNumber === 'string') {
+      updateData.trackingNumber = trackingNumber;
+    }
+
     const order = await prisma.order.update({
       where: { id: params.id },
-      data: { status },
+      data: updateData,
     });
 
     return NextResponse.json({ message: 'Cập nhật trạng thái thành công', order });

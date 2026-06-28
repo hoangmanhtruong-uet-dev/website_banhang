@@ -11,4 +11,6 @@ export interface Product {
   badge?: string;
   emoji: string;
   gradient: string;
+  image?: string;
+  images?: { id: string; url: string }[];
 }

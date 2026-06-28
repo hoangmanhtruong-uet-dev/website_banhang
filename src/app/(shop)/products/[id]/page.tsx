@@ -11,6 +11,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isPending, startTransition] = useTransition();
   const addItem = useCartStore(s => s.addItem);
   const addToast = useToastStore(s => s.addToast);
@@ -59,12 +60,54 @@ export default function ProductDetailPage() {
   return (
     <div className="page-container">
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '60px', marginTop: '40px' }}>
-        {/* Ảnh / Hero Icon */}
-        <div className="glass-card" style={{
-          height: '500px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '120px', background: product.gradient || 'var(--bg-secondary)'
-        }}>
-          {product.emoji}
+        {/* Ảnh / Gallery */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="glass-card" style={{
+            height: '500px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: product.gradient || 'var(--bg-secondary)', overflow: 'hidden', position: 'relative'
+          }}>
+            {product.images && product.images.length > 0 ? (
+              <img 
+                src={product.images[activeImageIndex]?.url || product.image} 
+                alt={product.name} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            ) : product.image ? (
+              <img 
+                src={product.image} 
+                alt={product.name} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            ) : (
+              <span style={{ fontSize: '120px', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' }}>
+                {product.emoji}
+              </span>
+            )}
+          </div>
+          
+          {product.images && product.images.length > 1 && (
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px' }}>
+              {product.images.map((img: any, i: number) => (
+                <button
+                  key={img.id}
+                  onClick={() => setActiveImageIndex(i)}
+                  style={{
+                    width: '70px',
+                    height: '70px',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    border: activeImageIndex === i ? '2px solid var(--accent)' : '2px solid transparent',
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: 0,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Thông tin */}

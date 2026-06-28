@@ -37,6 +37,14 @@ export async function getSession(): Promise<JWTPayload | null> {
   return verifyToken(token);
 }
 
+export function canAccessSeller(session: JWTPayload | null): boolean {
+  return !!session && (session.isSeller || session.role === 'admin');
+}
+
+export function canAccessShipper(session: JWTPayload | null): boolean {
+  return !!session && (session.role === 'shipper' || session.role === 'admin');
+}
+
 export async function requireAdmin(): Promise<JWTPayload> {
   const session = await getSession();
   if (!session || session.role !== 'admin') {

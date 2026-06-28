@@ -11,6 +11,8 @@ interface OrderItemData {
 interface OrderData {
   id: string;
   status: string;
+  paymentMethod: string;
+  shippingAddress: string;
   total: number;
   createdAt: string;
   orderItems: OrderItemData[];
@@ -74,6 +76,7 @@ export default function UserOrdersPage() {
                 <div>
                   <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Mã đơn hàng</p>
                   <p style={{ fontWeight: 700, fontSize: '15px' }}>#{order.id.slice(-8).toUpperCase()}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>Thanh toán: {order.paymentMethod}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Trạng thái</p>
@@ -87,6 +90,10 @@ export default function UserOrdersPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '13px' }}>Địa chỉ giao hàng</p>
+                  <p style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>{order.shippingAddress}</p>
+                </div>
                 {order.orderItems.map((item: OrderItemData) => (
                   <div key={item.id} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                     <div style={{ 

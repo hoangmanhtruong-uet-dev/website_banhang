@@ -28,13 +28,34 @@ export default function AdminSidebar() {
       borderRight: '1px solid rgba(255,255,255,0.05)',
       zIndex: 100
     }}>
-      <div style={{ marginBottom: '40px', padding: '0 15px' }}>
+      <div style={{ marginBottom: '24px', padding: '0 15px' }}>
         <h2 style={{ fontSize: '24px', fontWeight: 900, color: 'white', letterSpacing: '-1px' }}>
           ADMIN<span style={{ color: 'var(--accent)' }}>.IO</span>
         </h2>
         <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '5px' }}>
           Hệ thống quản trị tối cao
         </p>
+        <Link
+          href="/"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            marginTop: '16px',
+            padding: '10px 14px',
+            borderRadius: '12px',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: 'white',
+            textDecoration: 'none',
+            fontSize: '13px',
+            fontWeight: 600,
+            transition: 'all 0.2s ease',
+          }}
+        >
+          🏠 Quay về trang chủ
+        </Link>
       </div>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>

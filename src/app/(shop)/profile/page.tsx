@@ -213,6 +213,11 @@ export default function ProfilePage() {
                       return;
                     }
 
+                    if (!upData?.url) {
+                      addToast('Upload thành công nhưng không có url');
+                      return;
+                    }
+
                     setFormData((prev) => ({ ...prev, avatar: upData.url }));
                     addToast('Đã chọn ảnh thành công');
                   } catch {

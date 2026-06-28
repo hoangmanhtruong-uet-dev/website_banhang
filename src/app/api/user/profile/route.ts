@@ -11,9 +11,20 @@ export async function PUT(req: Request) {
 
     const body = await req.json();
 
-    const updatedUser: any = await prisma.user.update({
+    const allowed: Record<string, unknown> = {};
+    if (typeof body.name === 'string' && body.name.trim()) allowed.name = body.name.trim();
+    if (typeof body.phone === 'string') allowed.phone = body.phone.trim() || null;
+    if (['male', 'female', 'other'].includes(body.gender)) allowed.gender = body.gender;
+    if (body.birthday) allowed.birthday = new Date(body.birthday);
+    if (typeof body.avatar === 'string') allowed.avatar = body.avatar;
+
+    if (Object.keys(allowed).length === 0) {
+      return NextResponse.json({ error: 'Không có dữ liệu hợp lệ để cập nhật' }, { status: 400 });
+    }
+
+    const updatedUser = await prisma.user.update({
       where: { id: session.userId },
-      data: body,
+      data: allowed,
     });
 
     return NextResponse.json({ 

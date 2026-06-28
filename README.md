@@ -82,13 +82,42 @@ npx prisma db seed
 ```
 
 ### 5. Khởi động server
+
+#### Chạy cục bộ
 ```bash
 npm run dev
+```
+
+#### Chạy với Docker Compose
+```bash
+docker-compose up -d
 ```
 
 Truy cập: `http://localhost:3000`
 
 ---
+
+## 🐳 Docker Deployment
+
+### Yêu cầu
+- Docker & Docker Compose
+
+### Cách sử dụng
+```bash
+# Khởi động toàn bộ stack (MySQL + App)
+docker-compose up -d
+
+# Xem logs
+docker-compose logs -f
+
+# Dừng services
+docker-compose down
+
+# Reset database
+docker-compose down -v
+docker-compose up -d
+```
+
 
 ## 🗂️ Cấu trúc thư mục
 

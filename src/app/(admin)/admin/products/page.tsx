@@ -58,6 +58,26 @@ export default function AdminProductsPage() {
     }
   };
 
+  const updateImage = async (id: string, currentImage: string | null) => {
+    const newImage = window.prompt('Nhập URL hình ảnh mới cho sản phẩm (để trống để xóa):', currentImage || '');
+    if (newImage === null) return; // user cancelled
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: newImage || null }),
+      });
+      if (res.ok) {
+        addToast('Đã cập nhật ảnh sản phẩm! 🖼️');
+        fetchAllProducts();
+      } else {
+        addToast('Lỗi khi cập nhật ảnh.');
+      }
+    } catch {
+      addToast('Lỗi kết nối.');
+    }
+  };
+
   const deleteProduct = async (id: string) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
     try {
@@ -115,8 +135,29 @@ export default function AdminProductsPage() {
     }
   };
 
-  const approveCategory = (name: string) => {
-    addToast(`Danh mục "${name}" đã được duyệt hợp lệ! ✅`);
+  
+
+  const approveCategory = async (id: string, name: string) => {
+    try {
+      const res = await fetch(`/api/categories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        addToast(`Danh mục "${name}" đã được duyệt hợp lệ! ✅`);
+        fetchAllCategories();
+      } else if (data && data.error) {
+        addToast(data.error);
+      } else if (res.status === 403) {
+        addToast('Bạn không có quyền thực hiện hành động này.');
+      } else {
+        addToast('Lỗi khi duyệt danh mục.');
+      }
+    } catch {
+      addToast('Lỗi kết nối.');
+    }
   };
 
   return (
@@ -182,7 +223,12 @@ export default function AdminProductsPage() {
                 <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                   <td style={{ padding: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <span style={{ fontSize: '30px' }}>{p.emoji || '📦'}</span>
+                      {p.image ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={p.image} alt={p.name} style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '6px' }} />
+                      ) : (
+                        <span style={{ fontSize: '30px' }}>{p.emoji || '📦'}</span>
+                      )}
                       <div>
                         <p style={{ margin: 0, fontWeight: 700 }}>{p.name}</p>
                         <span style={{ fontSize: '11px', color: 'var(--accent)' }}>Shop ID: {p.sellerId?.slice(0,8)}...</span>
@@ -202,6 +248,9 @@ export default function AdminProductsPage() {
                   <td style={{ padding: '20px', fontSize: '13px' }}>⭐ {p.rating} ({p.reviews})</td>
                   <td style={{ padding: '20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button onClick={() => updateImage(p.id, p.image)} style={{ padding: '8px 12px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', cursor: 'pointer', fontSize: '12px' }}>
+                        Sửa ảnh
+                      </button>
                       <button onClick={() => toggleStock(p.id, p.inStock)} style={{ padding: '8px 12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}>
                         {p.inStock ? 'Khóa bán' : 'Kiểm duyệt'}
                       </button>
@@ -233,6 +282,11 @@ export default function AdminProductsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                       <span style={{ fontSize: '24px' }}>📁</span>
                       <p style={{ margin: 0, fontWeight: 700 }}>{c.name}</p>
+                      {c.approved ? (
+                        <div style={{ fontSize: '12px', color: '#10b981', marginTop: '6px' }}>Đã duyệt</div>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: '#f59e0b', marginTop: '6px' }}>Chờ duyệt</div>
+                      )}
                     </div>
                   </td>
                   <td style={{ padding: '20px', color: 'var(--accent)', fontSize: '13px' }}>{c.slug}</td>
@@ -241,7 +295,17 @@ export default function AdminProductsPage() {
                   </td>
                   <td style={{ padding: '20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      <button onClick={() => approveCategory(c.name)} style={{ padding: '8px 12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}>Kiểm duyệt</button>
+                      <button
+                        onClick={() => approveCategory(c.id, c.name)}
+                        disabled={c.approved}
+                        title={c.approved ? 'Đã duyệt' : 'Kiểm duyệt'}
+                        style={{
+                          padding: '8px 12px', borderRadius: '10px', background: c.approved ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.05)',
+                          color: c.approved ? '#10b981' : 'white', border: 'none', cursor: c.approved ? 'default' : 'pointer', fontSize: '12px'
+                        }}
+                      >
+                        {c.approved ? 'Đã duyệt' : 'Kiểm duyệt'}
+                      </button>
                       <button onClick={() => deleteCategory(c.id)} style={{ padding: '8px 12px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '12px' }}>Gỡ bỏ</button>
                     </div>
                   </td>

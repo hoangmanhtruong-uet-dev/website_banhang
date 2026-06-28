@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useToastStore } from '@/components/ui/Toast';
 
 interface Address {
@@ -16,6 +17,7 @@ interface Address {
 export default function AddressPage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const addToast = useToastStore(s => s.addToast);
 
@@ -31,6 +33,10 @@ export default function AddressPage() {
   const fetchAddresses = async () => {
     try {
       const res = await fetch('/api/user/addresses');
+      if (res.status === 401) {
+        setAuthError(true);
+        return;
+      }
       const data = await res.json();
       if (Array.isArray(data)) setAddresses(data);
     } catch (err) {
@@ -84,7 +90,14 @@ export default function AddressPage() {
         </button>
       </div>
 
-      {loading ? (
+      {authError ? (
+        <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
+          <p>Phiên đăng nhập đã hết hạn.</p>
+          <Link href="/login?from=/profile/address" className="btn-primary" style={{ display: 'inline-block', marginTop: '16px', padding: '10px 24px', textDecoration: 'none' }}>
+            Đăng nhập lại
+          </Link>
+        </div>
+      ) : loading ? (
         <div style={{ textAlign: 'center', padding: '50px' }}>Đang tải...</div>
       ) : addresses.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>Bạn chưa có địa chỉ nào.</div>

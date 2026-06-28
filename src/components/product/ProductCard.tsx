@@ -32,10 +32,14 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
     <Link href={`/products/${product.id}`} className="glass-card"
       style={{ display:'block', overflow:'hidden' }}>
       <div style={{ animation:`fadeInUp 0.6s ease-out ${index * 0.08}s forwards`, opacity:0 }}>
-        <div className="product-image" style={{ background: product.gradient }}>
-          <span style={{ fontSize:'64px', zIndex:1, filter:'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}>
-            {product.emoji}
-          </span>
+        <div className="product-image" style={{ background: product.gradient, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {product.image ? (
+            <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ fontSize:'64px', zIndex:1, filter:'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}>
+              {product.emoji}
+            </span>
+          )}
           {product.badge && (
             <span className={`badge ${getBadgeClass(product.badge)}`}
               style={{ position:'absolute', top:'12px', left:'12px', zIndex:2 }}>

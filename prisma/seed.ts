@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedVouchers } from './seed-vouchers';
 
 const prisma = new PrismaClient();
 
@@ -168,6 +169,9 @@ async function main() {
   await prisma.review.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.voucher.deleteMany();
+  await prisma.address.deleteMany();
+  await prisma.bankInfo.deleteMany();
   await prisma.product.deleteMany();
   await prisma.category.deleteMany();
   await prisma.user.deleteMany();
@@ -210,6 +214,24 @@ async function main() {
   });
   console.log(`✅ Tạo user: ${user.email} (${user.code}) / User@123456`);
 
+  // Tạo shipper user mẫu
+  const shipperPassword = await bcrypt.hash('Shipper@123', 12);
+  const shipper = await prisma.user.create({
+    data: {
+      code: 'SH001',
+      name: 'Nguyễn Văn Giao',
+      email: 'shipper@mtruong.store',
+      password: shipperPassword,
+      role: 'shipper',
+      phone: '0987654321',
+      licensePlate: '29A-123.45',
+      transportType: 'Xe máy (Yamaha Exciter)',
+      gender: 'male',
+      birthday: new Date('1995-10-20'),
+    },
+  });
+  console.log(`✅ Tạo shipper: ${shipper.email} (SH001) / Shipper@123`);
+
   // Tạo categories
   const categoriesData = ['Thời trang', 'Công nghệ', 'Làm đẹp', 'Gia dụng'];
   const categoryMap: Record<string, string> = {};
@@ -228,20 +250,26 @@ async function main() {
   for (const product of allProducts) {
     const { category, ...rest } = product;
     productCount++;
+    const stockQty = Math.floor(Math.random() * 120) + 1;
     await prisma.product.create({ 
       data: {
         ...rest,
         code: `PR${String(productCount).padStart(3, '0')}`,
         slug: generateSlug(product.name),
         categoryId: categoryMap[category],
+        stockQuantity: stockQty,
+        inStock: stockQty > 0,
       } 
     });
   }
   console.log(`✅ Tạo ${allProducts.length} sản phẩm`);
 
+  await seedVouchers(admin.id, 100);
+
   console.log('\n🎉 Seed hoàn thành!');
   console.log('📧 Admin:  truongcri0101@gmail.com (AD001) / 123456');
   console.log('📧 User:   user@mtruong.store (US001) / User@123456');
+  console.log('📧 Shipper: shipper@mtruong.store (SH001) / Shipper@123');
   console.log(`📦 Tổng sản phẩm: ${allProducts.length} (PR001 - PR${String(allProducts.length).padStart(3, '0')})`);
 }
 

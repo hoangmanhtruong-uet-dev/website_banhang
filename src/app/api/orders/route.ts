@@ -27,7 +27,7 @@ export async function GET() {
   }
 }
 
-// POST /api/orders - Tạo đơn hàng mới
+// POST /api/orders - Tạo đơn hàng mới (trừ tiền thật trong DB)
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -64,24 +64,67 @@ export async function POST(req: Request) {
       return { productId: item.productId, quantity: item.quantity, price };
     });
 
-    // Tạo order + orderItems trong 1 transaction
+    const paymentMethod = parsed.data.paymentMethod;
+    const needsDeduction = paymentMethod === 'Banking' || paymentMethod === 'MoMo';
+
+    // Nếu cần trừ tiền → kiểm tra số dư + tạo đơn trong 1 transaction
+    if (needsDeduction && session?.userId) {
+      // Kiểm tra số dư trước
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { balance: true },
+      });
+
+      if (!user || user.balance < total) {
+        return NextResponse.json(
+          { error: `Số dư không đủ. Cần ${total.toLocaleString('vi-VN')}đ, hiện có ${(user?.balance || 0).toLocaleString('vi-VN')}đ` },
+          { status: 400 }
+        );
+      }
+
+      // Transaction: trừ tiền + tạo đơn hàng
+      const [, order] = await prisma.$transaction([
+        prisma.user.update({
+          where: { id: session.userId },
+          data: { balance: { decrement: total } },
+        }),
+        prisma.order.create({
+          data: {
+            customerName: parsed.data.customerName,
+            customerEmail: parsed.data.customerEmail,
+            customerPhone: parsed.data.customerPhone,
+            shippingAddress: parsed.data.shippingAddress,
+            paymentMethod,
+            paymentStatus: 'paid',
+            shippingFee: 0,
+            total,
+            status: 'pending',
+            userId: session.userId,
+            orderItems: { create: orderItems },
+          },
+          include: { orderItems: { include: { product: true } } },
+        }),
+      ]);
+
+      return NextResponse.json(order, { status: 201 });
+    }
+
+    // COD hoặc chưa đăng nhập → tạo đơn bình thường, không trừ tiền
     const order = await prisma.order.create({
       data: {
         customerName: parsed.data.customerName,
         customerEmail: parsed.data.customerEmail,
         customerPhone: parsed.data.customerPhone,
         shippingAddress: parsed.data.shippingAddress,
-        paymentMethod: parsed.data.paymentMethod,
+        paymentMethod,
+        paymentStatus: 'pending',
+        shippingFee: 0,
         total,
         status: 'pending',
         userId: session?.userId || null,
-        orderItems: {
-          create: orderItems,
-        },
+        orderItems: { create: orderItems },
       },
-      include: {
-        orderItems: { include: { product: true } },
-      },
+      include: { orderItems: { include: { product: true } } },
     });
 
     return NextResponse.json(order, { status: 201 });

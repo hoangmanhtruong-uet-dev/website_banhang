@@ -10,18 +10,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 
     const { role } = await req.json();
-    const validRoles = ['user', 'admin', 'editor', 'sale', 'warehouse'];
-    
-    if (!validRoles.includes(role)) {
-      return NextResponse.json({ error: 'Vai trò không hợp lệ' }, { status: 400 });
-    }
-
     const user = await prisma.user.update({
       where: { id: params.id },
       data: { role },
     });
 
-    return NextResponse.json({ message: 'Cập nhật vai trò thành công', user });
+    return NextResponse.json(user);
   } catch (error) {
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }

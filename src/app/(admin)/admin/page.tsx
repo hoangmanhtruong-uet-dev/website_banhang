@@ -55,6 +55,7 @@ export default function AdminDashboard() {
 
   const getRoleLabel = (role: string, isSeller: boolean) => {
     if (role === 'admin') return 'ADMIN';
+    if (role === 'shipper') return 'SHIPPER';
     if (isSeller) return 'SELLER';
     return role.toUpperCase();
   };

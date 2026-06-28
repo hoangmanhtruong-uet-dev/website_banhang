@@ -20,9 +20,44 @@ export default function NewProductPage() {
     inStock: true,
   });
 
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+
   useEffect(() => {
     fetch('/api/categories').then(r => r.json()).then(setCategories);
   }, []);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setUploading(true);
+    try {
+      const urls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const data = new FormData();
+        data.append('file', file);
+        
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: data,
+        });
+        
+        if (res.ok) {
+          const result = await res.json();
+          urls.push(result.url);
+        }
+      }
+      setImages(prev => [...prev, ...urls]);
+      addToast('Tải ảnh lên thành công! 📸');
+    } catch (err) {
+      console.error(err);
+      addToast('Lỗi khi tải ảnh lên.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,12 +70,13 @@ export default function NewProductPage() {
           ...formData,
           price: Number(formData.price),
           originalPrice: formData.originalPrice ? Number(formData.originalPrice) : null,
+          images: images,
         }),
       });
 
       if (res.ok) {
         addToast('Đăng sản phẩm thành công! 🛍️');
-        router.push('/seller');
+        router.push('/seller/products');
       } else {
         const error = await res.json();
         addToast(error.error || 'Lỗi khi đăng sản phẩm');
@@ -78,6 +114,48 @@ export default function NewProductPage() {
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Giá gốc (nếu có)</label>
               <input type="number" className="input-field" value={formData.originalPrice} onChange={e => setFormData({...formData, originalPrice: e.target.value})} placeholder="Ví dụ: 700000" />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Ảnh sản phẩm (Tải lên ảnh thật để thay thế emoji mặc định)</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '15px' }}>
+              {images.map((url, index) => (
+                <div key={index} style={{ width: '100px', height: '100px', borderRadius: '12px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <button
+                    type="button"
+                    onClick={() => setImages(images.filter((_, i) => i !== index))}
+                    style={{
+                      position: 'absolute', top: '5px', right: '5px', width: '22px', height: '22px', borderRadius: '50%',
+                      background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              
+              <label style={{
+                width: '100px', height: '100px', borderRadius: '12px', border: '2px dashed rgba(255,255,255,0.2)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                cursor: uploading ? 'not-allowed' : 'pointer', background: 'rgba(255,255,255,0.02)',
+                transition: 'all 0.2s', opacity: uploading ? 0.6 : 1
+              }}>
+                <span style={{ fontSize: '24px' }}>📷</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {uploading ? 'Đang tải...' : 'Thêm ảnh'}
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  disabled={uploading}
+                  onChange={handleImageUpload}
+                  style={{ display: 'none' }}
+                />
+              </label>
             </div>
           </div>
 

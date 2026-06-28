@@ -17,7 +17,7 @@ export default function Navbar() {
     fetchMe();
   }, [fetchMe]);
 
-  if (pathname?.startsWith('/admin') || pathname?.startsWith('/seller')) return null;
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/seller') || pathname?.startsWith('/shipper')) return null;
 
   return (
     <nav className="navbar">

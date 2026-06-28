@@ -4,7 +4,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'shipper';
   isSeller: boolean;
   phone?: string;
   gender?: string;

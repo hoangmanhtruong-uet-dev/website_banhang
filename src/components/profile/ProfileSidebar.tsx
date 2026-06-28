@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
 
 const menuItems = [
   { label: 'Hồ sơ cá nhân', icon: '👤', href: '/profile', color: '#8b5cf6' },
-  { label: 'Đơn hàng của tôi', icon: '📦', href: '/profile/purchase', color: '#f97316' },
+  { label: 'Đơn hàng của tôi', icon: '📦', href: '/profile/orders', color: '#f97316' },
   { label: 'Ngân hàng', icon: '🏦', href: '/profile/bank', color: '#10b981' },
   { label: 'Địa chỉ', icon: '📍', href: '/profile/address', color: '#ef4444' },
   { label: 'Đổi mật khẩu', icon: '🔑', href: '/profile/password', color: '#f59e0b' },
@@ -16,16 +17,27 @@ const menuItems = [
 
 export default function ProfileSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const user = useAuthStore(s => s.user);
   const fetchMe = useAuthStore(s => s.fetchMe);
   const addToast = useToastStore(s => s.addToast);
 
+  useEffect(() => {
+    if (searchParams.get('needSeller') === '1') {
+      addToast('Bấm "Trở thành Người bán" để kích hoạt kênh seller (hoặc đăng nhập lại).');
+    }
+  }, [searchParams, addToast]);
+
   const handleRegisterSeller = async () => {
     try {
       const res = await fetch('/api/user/seller-register', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         addToast('Chúc mừng! Bạn đã trở thành người bán hàng! 🚀');
         await fetchMe();
+        window.location.href = '/seller';
+      } else {
+        addToast(data.error || 'Không thể đăng ký người bán.');
       }
     } catch {
       addToast('Lỗi khi đăng ký.');
@@ -50,11 +62,16 @@ export default function ProfileSidebar() {
         
         {/* Seller Status */}
         {user?.isSeller ? (
-          <Link href="/seller" className="btn-primary" style={{ display: 'block', padding: '10px', fontSize: '14px', textDecoration: 'none' }}>
-            🏪 Kênh Người Bán
-          </Link>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+            <Link href="/seller" className="btn-primary" style={{ display: 'block', padding: '10px', fontSize: '14px', textDecoration: 'none', textAlign: 'center' }}>
+              🏪 Kênh Người Bán
+            </Link>
+            <button type="button" onClick={handleRegisterSeller} className="btn-secondary" style={{ width: '100%', padding: '8px', fontSize: '12px' }}>
+              Làm mới quyền truy cập
+            </button>
+          </div>
         ) : (
-          <button onClick={handleRegisterSeller} className="btn-secondary" style={{ width: '100%', padding: '10px', fontSize: '14px' }}>
+          <button type="button" onClick={handleRegisterSeller} className="btn-secondary" style={{ width: '100%', padding: '10px', fontSize: '14px' }}>
             🚀 Trở thành Người bán
           </button>
         )}

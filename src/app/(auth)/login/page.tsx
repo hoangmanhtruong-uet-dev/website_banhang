@@ -1,12 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
 
 export default function LoginPage() {
-  const [activeTab, setActiveTab] = useState<'user' | 'admin'>('user');
+  const [activeTab, setActiveTab] = useState<'user' | 'admin' | 'shipper'>('user');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,6 +14,8 @@ export default function LoginPage() {
   const login = useAuthStore(s => s.login);
   const addToast = useToastStore(s => s.addToast);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('from');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,10 +25,15 @@ export default function LoginPage() {
     const result = await login(email, password);
 
     if (result.ok) {
-      addToast(`Đăng nhập thành công với tư cách ${activeTab === 'admin' ? 'Quản trị viên' : 'Người dùng'}! 🎉`);
-      // Redirect based on role
-      if (activeTab === 'admin') {
+      const roleName = activeTab === 'admin' ? 'Quản trị viên' : activeTab === 'shipper' ? 'Người giao hàng' : 'Người dùng';
+      addToast(`Đăng nhập thành công với tư cách ${roleName}! 🎉`);
+      
+      if (redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//')) {
+        router.push(redirectTo);
+      } else if (activeTab === 'admin') {
         router.push('/admin');
+      } else if (activeTab === 'shipper') {
+        router.push('/shipper/orders');
       } else {
         router.push('/');
       }
@@ -46,13 +53,13 @@ export default function LoginPage() {
             borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 20px', fontSize: '40px', boxShadow: '0 10px 30px rgba(59, 130, 246, 0.3)'
           }}>
-            {activeTab === 'admin' ? '🛡️' : '🛍️'}
+            {activeTab === 'admin' ? '🛡️' : activeTab === 'shipper' ? '🚚' : '🛍️'}
           </div>
           <h1 style={{ fontSize:'32px', fontWeight:800, marginBottom:'8px', letterSpacing:'-1px' }}>
-            {activeTab === 'admin' ? 'Hệ thống Quản trị' : 'Chào mừng trở lại'}
+            {activeTab === 'admin' ? 'Hệ thống Quản trị' : activeTab === 'shipper' ? 'Kênh Giao Hàng' : 'Chào mừng trở lại'}
           </h1>
           <p style={{ color:'var(--text-muted)', fontSize:'15px' }}>
-            {activeTab === 'admin' ? 'Dành cho nhân viên và quản lý' : 'Đăng nhập để tiếp tục mua sắm'}
+            {activeTab === 'admin' ? 'Dành cho nhân viên và quản lý' : activeTab === 'shipper' ? 'Dành cho đối tác vận chuyển' : 'Đăng nhập để tiếp tục mua sắm'}
           </p>
         </div>
 
@@ -71,6 +78,17 @@ export default function LoginPage() {
               fontSize: '14px'
             }}>
             Người dùng
+          </button>
+          <button 
+            onClick={() => { setActiveTab('shipper'); setError(''); }}
+            style={{ 
+              flex: 1, padding: '12px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+              background: activeTab === 'shipper' ? 'white' : 'transparent',
+              color: activeTab === 'shipper' ? '#111' : 'white',
+              fontWeight: 600, transition: 'all 0.3s ease',
+              fontSize: '14px'
+            }}>
+            Shipper
           </button>
           <button 
             onClick={() => { setActiveTab('admin'); setError(''); }}
@@ -127,7 +145,7 @@ export default function LoginPage() {
                 <span className="animate-spin">🌀</span> Đang xác thực...
               </span>
             ) : (
-              `Đăng nhập ${activeTab === 'admin' ? 'Admin' : ''}`
+              `Đăng nhập ${activeTab === 'admin' ? 'Admin' : activeTab === 'shipper' ? 'Shipper' : ''}`
             )}
           </button>
 

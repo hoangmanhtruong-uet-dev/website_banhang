@@ -24,6 +24,10 @@ export async function PUT(req: Request, { params }: Params) {
     if (description !== undefined) {
       data.description = description;
     }
+    // Allow admin to mark category as approved
+    if (body.approved !== undefined) {
+      data.approved = !!body.approved;
+    }
 
     const category = await prisma.category.update({
       where: { id },

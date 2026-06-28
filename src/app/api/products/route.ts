@@ -23,10 +23,10 @@ export async function GET(req: Request) {
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
     console.time('DB_Query_Products');
-    const products = await prisma.product.findMany({
+    const products = await (prisma.product.findMany as any)({
       where,
       orderBy: { [sortField]: order as 'asc' | 'desc' },
-      include: { categoryRef: true },
+      include: { categoryRef: true, images: true },
       take: 20, // Giới hạn lấy 20 cái cho nhanh
     });
     console.timeEnd('DB_Query_Products');
