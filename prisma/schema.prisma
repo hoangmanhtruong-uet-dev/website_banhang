@@ -82,6 +82,7 @@ model User {
 
   @@index([email])
   @@index([code])
+  @@map("user")
 }
 
 model Voucher {
@@ -103,6 +104,7 @@ model Voucher {
 
   @@index([sellerId])
   @@index([code])
+  @@map("voucher")
 }
 
 model Address {
@@ -120,6 +122,7 @@ model Address {
   updatedAt       DateTime @updatedAt
 
   @@index([userId])
+  @@map("address")
 }
 
 model BankInfo {
@@ -134,6 +137,7 @@ model BankInfo {
   updatedAt     DateTime @updatedAt
 
   @@index([userId])
+  @@map("bankinfo")
 }
 
 model Product {
@@ -165,6 +169,7 @@ model Product {
   @@index([sellerId])
   @@index([categoryId])
   @@index([code])
+  @@map("product")
 }
 
 model Category {
@@ -176,6 +181,7 @@ model Category {
   products    Product[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  @@map("category")
 }
 
 model Review {
@@ -192,6 +198,7 @@ model Review {
   @@unique([userId, productId]) // 1 user = 1 review per product
   @@index([userId])
   @@index([productId])
+  @@map("review")
 }
 
 model Order {
@@ -221,6 +228,7 @@ model Order {
   @@index([shipperId])
   @@index([status])
   @@index([paymentStatus])
+  @@map("order")
 }
 
 model OrderItem {
@@ -235,6 +243,7 @@ model OrderItem {
   @@unique([orderId, productId])
   @@index([orderId])
   @@index([productId])
+  @@map("orderitem")
 }
 
 model SiteConfig {
@@ -252,6 +261,7 @@ model SiteConfig {
   maintenanceMode   Boolean  @default(false)
   lastBackupAt      DateTime?
   updatedAt         DateTime @updatedAt
+  @@map("siteconfig")
 }
 
 model ProductImage {
@@ -262,4 +272,5 @@ model ProductImage {
   createdAt DateTime @default(now())
 
   @@index([productId])
+  @@map("productimage")
 }
