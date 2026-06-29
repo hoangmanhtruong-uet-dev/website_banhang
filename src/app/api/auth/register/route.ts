@@ -61,8 +61,11 @@ export async function POST(req: Request) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[REGISTER]', error);
-    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Lỗi server', 
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }

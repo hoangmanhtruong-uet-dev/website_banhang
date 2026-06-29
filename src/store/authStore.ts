@@ -73,7 +73,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       const data = await res.json();
 
       if (!res.ok) {
-        return { ok: false, error: data.error || 'Đăng ký thất bại' };
+        const errorMsg = data.details || data.error || 'Đăng ký thất bại';
+        return { ok: false, error: errorMsg };
       }
 
       set({ user: data.user, isAuthenticated: true });
