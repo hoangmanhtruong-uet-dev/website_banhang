@@ -94,11 +94,11 @@ export default function AdminOrdersPage() {
                 <td style={{ padding: '20px', fontWeight: 700, color: 'var(--accent)' }}>{formatPrice(o.total)}</td>
                 <td style={{ padding: '20px' }}>
                   <select 
-                    value={o.status || 'pending'} 
+                    value={(o.status || 'pending').toLowerCase()} 
                     onChange={(e) => handleStatusChange(o.id, e.target.value)}
                     style={{ 
                       padding: '6px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, border: 'none',
-                      background: `rgba(255,255,255,0.05)`, color: getStatusColor(o.status),
+                      background: `rgba(255,255,255,0.05)`, color: getStatusColor((o.status || 'pending').toLowerCase()),
                     }}
                   >
                     <option value="pending">CHỜ XỬ LÝ</option>

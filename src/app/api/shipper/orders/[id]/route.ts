@@ -17,14 +17,14 @@ export async function PATCH(
     const { status, estimatedDelivery, trackingNumber, shippingProvider, assignSelf } = body;
 
     const updateData: Record<string, unknown> = {};
-    if (status) updateData.status = status;
+    if (status) updateData.status = status.toLowerCase();
     if (estimatedDelivery) updateData.estimatedDelivery = new Date(estimatedDelivery);
     if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
     if (shippingProvider !== undefined) updateData.shippingProvider = shippingProvider;
     if (assignSelf) updateData.shipperId = session.userId;
 
     // Nếu DELIVERED thì set deliveredAt
-    if (status === 'DELIVERED') {
+    if (status && status.toUpperCase() === 'DELIVERED') {
       updateData.deliveredAt = new Date();
     }
 
