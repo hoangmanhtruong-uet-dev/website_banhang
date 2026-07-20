@@ -3,7 +3,8 @@ import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   try {
     const session = await getSession();
     if (!session || session.role !== 'admin') {

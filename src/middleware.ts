@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { env } from '@/config/env';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-);
+const ACCESS_SECRET = new TextEncoder().encode(env.JWT_ACCESS_SECRET);
 
 async function verifyAuthToken(token: string) {
-  const { payload } = await jwtVerify(token, JWT_SECRET);
+  const { payload } = await jwtVerify(token, ACCESS_SECRET);
   return payload;
 }
 
@@ -23,6 +22,25 @@ function redirectToLogin(request: NextRequest, fromPath: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('auth-token')?.value;
+
+  // CSRF Protection for non-GET requests
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
+    const origin = request.headers.get('origin');
+    const referer = request.headers.get('referer');
+    const host = request.headers.get('host');
+
+    if (origin) {
+      const originHost = new URL(origin).host;
+      if (originHost !== host) {
+        return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
+      }
+    } else if (referer) {
+      const refererHost = new URL(referer).host;
+      if (refererHost !== host) {
+        return NextResponse.json({ error: 'Invalid referer' }, { status: 403 });
+      }
+    }
+  }
 
   // Bảo vệ route admin - verify JWT thực
   if (pathname.startsWith('/admin')) {

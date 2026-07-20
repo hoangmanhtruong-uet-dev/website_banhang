@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { formatPrice } from '@/lib/utils';
 import { useToastStore } from '@/components/ui/Toast';
 import Link from 'next/link';
@@ -51,8 +51,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
   cancelled: { label: '❌ ĐÃ HỦY ĐƠN', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
 };
 
-export default function AdminOrderDetailPage({ params }: { params: { id: string } }) {
+export default function AdminOrderDetailPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);

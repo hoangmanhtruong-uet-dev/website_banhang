@@ -1,63 +1,49 @@
 import { NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { StorageService } from '@/lib/services/storage.service';
+import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
 
-// Cấu hình Cloudinary từ biến môi trường
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+export const runtime = 'nodejs';
+
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
+    const limiter = await rateLimit(`upload:${ip}`, { windowMs: 60 * 1000, max: 5 });
+    if (!limiter.success) {
+      return getRateLimitResponse(limiter.reset);
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+      return NextResponse.json({ error: 'Không có file nào được tải lên' }, { status: 400 });
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File quá lớn (tối đa 5MB)' }, { status: 400 });
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return NextResponse.json({ error: 'Định dạng file không được hỗ trợ' }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // 1. Nếu đã cấu hình Cloudinary -> Tải lên Cloudinary
-    if (
-      process.env.CLOUDINARY_CLOUD_NAME &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET
-    ) {
-      const base64Data = buffer.toString('base64');
-      const fileUri = `data:${file.type || 'image/jpeg'};base64,${base64Data}`;
-
-      const uploadResponse = await cloudinary.uploader.upload(fileUri, {
-        folder: 'mtruong-store',
-      });
-
-      console.log(`[CLOUDINARY UPLOAD] File uploaded at ${uploadResponse.secure_url}`);
-      return NextResponse.json({ url: uploadResponse.secure_url });
+    const isValid = await StorageService.validateFile(buffer, file.type);
+    if (!isValid) {
+      return NextResponse.json({ error: 'Nội dung file không hợp lệ' }, { status: 400 });
     }
 
-    // 2. Nếu chưa cấu hình Cloudinary -> Fallback lưu ổ đĩa local
-    const fileName = `${Date.now()}-${file.name.replace(/\s/g, '-')}`;
-    const uploadDir = join(process.cwd(), 'public/uploads');
-    
-    // Tự động tạo thư mục public/uploads nếu chưa có
-    await mkdir(uploadDir, { recursive: true });
-    
-    const path = join(uploadDir, fileName);
-    await writeFile(path, buffer);
-    const url = `/uploads/${fileName}`;
+    const key = await StorageService.upload(buffer, file.name, file.type);
+    const url = StorageService.getUrl(key);
 
-    console.log(`[LOCAL UPLOAD] File saved at ${path}`);
-    return NextResponse.json({ url });
-  } catch (error: any) {
+    return NextResponse.json({ url, key });
+  } catch (error) {
     console.error('[UPLOAD ERROR]', error);
-    return NextResponse.json(
-      { error: 'Upload failed', details: error?.message || String(error) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Upload thất bại' }, { status: 500 });
   }
 }
-

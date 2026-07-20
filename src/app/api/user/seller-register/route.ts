@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession, signToken } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
+import { AuthService } from '@/lib/services/auth.service';
 
 export async function POST() {
   try {
@@ -19,7 +20,7 @@ export async function POST() {
       },
     });
 
-    const token = await signToken({
+    const token = await AuthService.signAccessToken({
       userId: user.id,
       email: user.email,
       role: user.role,

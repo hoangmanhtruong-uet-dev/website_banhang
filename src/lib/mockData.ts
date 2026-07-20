@@ -79,26 +79,26 @@ export const mockProducts: Product[] = [
 export const mockOrders: Order[] = [
   {
     id: 'ORD-001', items: [{ product: mockProducts[0], quantity: 1 }, { product: mockProducts[1], quantity: 1 }],
-    total: 3780000, status: 'delivered', customerName: 'Nguyễn Văn An', customerEmail: 'an.nguyen@email.com',
-    customerPhone: '0901234567', shippingAddress: '123 Nguyễn Huệ, Q.1, TP.HCM',
+    total: 3780000, status: 'delivered', paymentStatus: 'paid', customerName: 'Nguyễn Văn An', customerEmail: 'an.nguyen@email.com',
+    customerPhone: '0901234567', shippingAddress: '123 Nguyễn Huệ, Q.1, TP.HCM', shippingFee: 30000,
     paymentMethod: 'COD', createdAt: '2026-05-10T08:30:00Z',
   },
   {
     id: 'ORD-002', items: [{ product: mockProducts[5], quantity: 1 }],
-    total: 25990000, status: 'processing', customerName: 'Trần Thị Bình', customerEmail: 'binh.tran@email.com',
-    customerPhone: '0912345678', shippingAddress: '456 Lê Lợi, Q.3, TP.HCM',
+    total: 25990000, status: 'processing', paymentStatus: 'paid', customerName: 'Trần Thị Bình', customerEmail: 'binh.tran@email.com',
+    customerPhone: '0912345678', shippingAddress: '456 Lê Lợi, Q.3, TP.HCM', shippingFee: 0,
     paymentMethod: 'Banking', createdAt: '2026-05-11T14:20:00Z',
   },
   {
     id: 'ORD-003', items: [{ product: mockProducts[2], quantity: 2 }, { product: mockProducts[6], quantity: 1 }],
-    total: 2550000, status: 'shipped', customerName: 'Lê Minh Cường', customerEmail: 'cuong.le@email.com',
-    customerPhone: '0923456789', shippingAddress: '789 Trần Hưng Đạo, Hoàn Kiếm, Hà Nội',
+    total: 2550000, status: 'shipped', paymentStatus: 'paid', customerName: 'Lê Minh Cường', customerEmail: 'cuong.le@email.com',
+    customerPhone: '0923456789', shippingAddress: '789 Trần Hưng Đạo, Hoàn Kiếm, Hà Nội', shippingFee: 40000,
     paymentMethod: 'MoMo', createdAt: '2026-05-12T09:15:00Z',
   },
   {
     id: 'ORD-004', items: [{ product: mockProducts[8], quantity: 1 }],
-    total: 3290000, status: 'pending', customerName: 'Phạm Thu Dung', customerEmail: 'dung.pham@email.com',
-    customerPhone: '0934567890', shippingAddress: '321 Hai Bà Trưng, Q.1, TP.HCM',
+    total: 3290000, status: 'pending', paymentStatus: 'unpaid', customerName: 'Phạm Thu Dung', customerEmail: 'dung.pham@email.com',
+    customerPhone: '0934567890', shippingAddress: '321 Hai Bà Trưng, Q.1, TP.HCM', shippingFee: 30000,
     paymentMethod: 'Banking', createdAt: '2026-05-13T06:00:00Z',
   },
 ];

@@ -3,7 +3,8 @@ import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
 // PUT: Cập nhật Voucher (chỉ cập nhật được nếu voucher thuộc về chính người bán này)
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   try {
     const session = await getSession();
     if (!session || (!session.isSeller && session.role !== 'admin')) {
@@ -44,7 +45,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 // DELETE: Xóa vĩnh viễn Voucher
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   try {
     const session = await getSession();
     if (!session || (!session.isSeller && session.role !== 'admin')) {

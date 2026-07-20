@@ -5,10 +5,11 @@ import { requireAdmin } from '@/lib/auth';
 // PATCH /api/admin/users/[id]/balance — Admin nạp/sửa tiền cho user
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdmin();
+    const params = await context.params;
 
     const body = await req.json();
     const { balance, amount } = body;

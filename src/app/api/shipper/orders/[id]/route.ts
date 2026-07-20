@@ -5,16 +5,23 @@ import { getSession, canAccessShipper } from '@/lib/auth';
 // PATCH: Cập nhật trạng thái, ngày nhận, tracking, và gán shipper
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession();
     if (!session || !canAccessShipper(session)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    const params = await context.params;
 
     const body = await req.json();
-    const { status, estimatedDelivery, trackingNumber, shippingProvider, assignSelf } = body;
+    const { status, estimatedDelivery, trackingNumber, shippingProvider, assignSelf } = body as {
+      status?: string;
+      estimatedDelivery?: string;
+      trackingNumber?: string;
+      shippingProvider?: string;
+      assignSelf?: boolean;
+    };
 
     const updateData: Record<string, unknown> = {};
     if (status) updateData.status = status.toLowerCase();

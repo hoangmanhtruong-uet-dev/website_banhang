@@ -3,7 +3,8 @@ import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
 // PUT: Kích hoạt lại Voucher (Kéo dài ngày hết hạn thêm 30 ngày)
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   try {
     const session = await getSession();
     if (!session || (!session.isSeller && session.role !== 'admin')) {

@@ -1,136 +1,28 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
+import { NextRequest } from 'next/server';
 import { orderSchema } from '@/lib/validations';
 import { getSession } from '@/lib/auth';
+import { OrderService } from '@/lib/services/order.service';
+import { createHandler } from '@/lib/api-handler';
+import { AuthenticationError } from '@/lib/errors';
 
-// GET /api/orders - Lấy danh sách đơn hàng (admin only)
-export async function GET() {
-  try {
-    const session = await getSession();
-    if (!session || session.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+// GET /api/orders - Lấy danh sách đơn hàng
+export const GET = createHandler(async () => {
+  const session = await getSession();
+  if (!session) throw new AuthenticationError();
 
-    const orders = await prisma.order.findMany({
-      include: {
-        orderItems: {
-          include: { product: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  return await OrderService.getOrders(session.userId, session.role);
+});
 
-    return NextResponse.json(orders);
-  } catch (error) {
-    console.error('[GET /api/orders]', error);
-    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
-  }
-}
+// POST /api/orders - Tạo đơn hàng mới
+export const POST = createHandler(async (req: NextRequest) => {
+  const body = await req.json();
+  const session = await getSession();
 
-// POST /api/orders - Tạo đơn hàng mới (trừ tiền thật trong DB)
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const session = await getSession();
+  const parsed = orderSchema.parse(body);
 
-    // Validate thông tin giao hàng
-    const parsed = orderSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
-    }
-
-    const { items } = body;
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'Giỏ hàng trống' }, { status: 400 });
-    }
-
-    // Lấy giá thực từ DB để tránh gian lận giá
-    const productIds: string[] = items.map((item: {productId: string; quantity: number}) => item.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-    });
-
-    if (products.length !== productIds.length) {
-      return NextResponse.json({ error: 'Có sản phẩm không tồn tại' }, { status: 400 });
-    }
-
-    // Tính tổng tiền từ giá DB
-    let total = 0;
-    const orderItems = items.map((item: {productId: string; quantity: number}) => {
-      const product = products.find(p => p.id === item.productId);
-      if (!product) throw new Error('Product not found');
-      const price = product.price;
-      total += price * item.quantity;
-      return { productId: item.productId, quantity: item.quantity, price };
-    });
-
-    const paymentMethod = parsed.data.paymentMethod;
-    const needsDeduction = paymentMethod === 'Banking' || paymentMethod === 'MoMo';
-
-    // Nếu cần trừ tiền → kiểm tra số dư + tạo đơn trong 1 transaction
-    if (needsDeduction && session?.userId) {
-      // Kiểm tra số dư trước
-      const user = await prisma.user.findUnique({
-        where: { id: session.userId },
-        select: { balance: true },
-      });
-
-      if (!user || user.balance < total) {
-        return NextResponse.json(
-          { error: `Số dư không đủ. Cần ${total.toLocaleString('vi-VN')}đ, hiện có ${(user?.balance || 0).toLocaleString('vi-VN')}đ` },
-          { status: 400 }
-        );
-      }
-
-      // Transaction: trừ tiền + tạo đơn hàng
-      const [, order] = await prisma.$transaction([
-        prisma.user.update({
-          where: { id: session.userId },
-          data: { balance: { decrement: total } },
-        }),
-        prisma.order.create({
-          data: {
-            customerName: parsed.data.customerName,
-            customerEmail: parsed.data.customerEmail,
-            customerPhone: parsed.data.customerPhone,
-            shippingAddress: parsed.data.shippingAddress,
-            paymentMethod,
-            paymentStatus: 'paid',
-            shippingFee: 0,
-            total,
-            status: 'pending',
-            userId: session.userId,
-            orderItems: { create: orderItems },
-          },
-          include: { orderItems: { include: { product: true } } },
-        }),
-      ]);
-
-      return NextResponse.json(order, { status: 201 });
-    }
-
-    // COD hoặc chưa đăng nhập → tạo đơn bình thường, không trừ tiền
-    const order = await prisma.order.create({
-      data: {
-        customerName: parsed.data.customerName,
-        customerEmail: parsed.data.customerEmail,
-        customerPhone: parsed.data.customerPhone,
-        shippingAddress: parsed.data.shippingAddress,
-        paymentMethod,
-        paymentStatus: 'pending',
-        shippingFee: 0,
-        total,
-        status: 'pending',
-        userId: session?.userId || null,
-        orderItems: { create: orderItems },
-      },
-      include: { orderItems: { include: { product: true } } },
-    });
-
-    return NextResponse.json(order, { status: 201 });
-  } catch (error) {
-    console.error('[POST /api/orders]', error);
-    const message = error instanceof Error ? error.message : 'Lỗi server';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+  return await OrderService.createOrder({
+    ...parsed,
+    userId: session?.userId,
+    items: body.items,
+  });
+});

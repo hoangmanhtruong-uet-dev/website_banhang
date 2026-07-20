@@ -1,44 +1,47 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import prisma from '@/lib/db';
-import { signToken } from '@/lib/auth';
 import { registerSchema } from '@/lib/validations';
 import { generateNextUserId } from '@/lib/idGenerator';
+import { AuthService } from '@/lib/services/auth.service';
+import { SessionService } from '@/lib/services/session.service';
+import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
+import { PasswordService } from '@/lib/services/password.service';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
+    const limiter = await rateLimit(`register:${ip}`, { windowMs: 60 * 60 * 1000, max: 3 });
+    if (!limiter.success) {
+      return getRateLimitResponse(limiter.reset);
+    }
+
     const body = await req.json();
 
-    // Validate với Zod
-    const parsed = registerSchema.safeParse(body);
-    if (!parsed.success) {
+    const result = registerSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: result.error.errors[0].message },
         { status: 400 }
       );
     }
 
-    const { name, email, password } = parsed.data;
+    const { name, email, password } = result.data;
 
-    // Kiểm tra email đã tồn tại
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json({ error: 'Email đã được sử dụng' }, { status: 400 });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Generate code
+    const hashedPassword = await PasswordService.hash(password);
     const code = await generateNextUserId('user');
 
-    // Tạo user
     const user = await prisma.user.create({
       data: { name, email, password: hashedPassword, role: 'user', code },
     });
 
-    // Tạo JWT
-    const token = await signToken({
+    const accessToken = await AuthService.signAccessToken({
       userId: user.id,
       email: user.email,
       role: user.role,
@@ -46,26 +49,28 @@ export async function POST(req: Request) {
       isSeller: user.isSeller,
     });
 
+    const userAgent = req.headers.get('user-agent') || undefined;
+    const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0] || undefined;
+
+    const { refreshToken } = await SessionService.createSession(user.id, userAgent, ipAddress);
+
     const response = NextResponse.json(
       { message: 'Đăng ký thành công', user: { id: user.id, name: user.name, email: user.email, role: user.role } },
       { status: 201 }
     );
 
-    // Set HTTP-only cookie
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
+    AuthService.setAuthCookies(response, accessToken, refreshToken);
+    response.cookies.set('user-role', user.role, {
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 ngày
+      maxAge: 30 * 24 * 60 * 60,
       path: '/',
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error) {
     console.error('[REGISTER]', error);
-    return NextResponse.json({ 
-      error: 'Lỗi server', 
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

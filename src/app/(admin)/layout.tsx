@@ -5,16 +5,16 @@ import { useAuthStore } from '@/store/authStore';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== 'admin')) {
+    if (!isLoading && (!user || user.role !== 'admin')) {
       router.push('/'); // Nếu không phải admin, đá về trang chủ
     }
-  }, [user, loading, router]);
+  }, [user, isLoading, router]);
 
-  if (loading || !user || user.role !== 'admin') {
+  if (isLoading || !user || user.role !== 'admin') {
     return <div style={{ background: '#020617', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>Đang xác thực quyền Admin...</div>;
   }
 
