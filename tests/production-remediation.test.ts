@@ -60,7 +60,7 @@ test('production error response hides stack trace and internal message', () => {
 
   assert.match(source, /const requestId = crypto\.randomUUID\(\)/);
   assert.match(source, /process\.env\.NODE_ENV === 'development'/);
-  assert.match(source, /stack: error\.stack/);
+  assert.match(source, /stack: error instanceof Error \? error\.stack/);
   assert.match(source, /message:\s*'Đã có lỗi xảy ra, vui lòng thử lại sau'/);
   assert.match(source, /status >= 500/);
 });
@@ -82,5 +82,6 @@ test('mass assignment sensitive order fields are server-owned', () => {
   assert.doesNotMatch(route, /totalAmount|paymentStatus/);
   assert.match(service, /const total = Math\.max\(0, subtotal - discount\)/);
   assert.match(service, /paymentStatus = 'paid'|paymentStatus\s*=\s*'pending'/);
-  assert.match(service, /userId: userId \|\| null/);
+  assert.match(service, /userId,/);
+  assert.match(route, /if \(!session\) throw new AuthenticationError/);
 });

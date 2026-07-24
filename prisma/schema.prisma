@@ -55,32 +55,35 @@ enum DiscountType {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  code      String   @unique // US001, AD001, etc
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("user") // "user" | "admin" | "shipper" | "editor" | "sale" | "warehouse"
-  isActive  Boolean  @default(true)
-  isSeller  Boolean  @default(false)
-  phone     String?
-  gender    String?  // "male" | "female" | "other"
-  birthday  DateTime?
-  avatar    String?
-  balance   Float    @default(0)
-  licensePlate  String? // Biển số xe cho Shipper
-  transportType String? // Loại phương tiện: Xe máy, Ô tô...
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  reviews   Review[]
-  orders    Order[]
-  shipperOrders Order[] @relation("ShipperOrders")
-  products  Product[] @relation("UserProducts")
-  addresses Address[]
-  bankInfos BankInfo[]
-  vouchers  Voucher[]
-  sessions  Session[]
+  id                  String               @id @default(cuid())
+  code                String               @unique // US001, AD001, etc
+  name                String
+  email               String               @unique
+  password            String
+  role                String               @default("user") // "user" | "admin" | "shipper" | "editor" | "sale" | "warehouse"
+  isActive            Boolean              @default(true)
+  isSeller            Boolean              @default(false)
+  phone               String?
+  gender              String? // "male" | "female" | "other"
+  birthday            DateTime?
+  avatar              String?
+  balance             Float                @default(0)
+  licensePlate        String? // Biển số xe cho Shipper
+  transportType       String? // Loại phương tiện: Xe máy, Ô tô...
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  reviews             Review[]
+  orders              Order[]
+  shipperOrders       Order[]              @relation("ShipperOrders")
+  products            Product[]            @relation("UserProducts")
+  addresses           Address[]
+  bankInfos           BankInfo[]
+  vouchers            Voucher[]
+  sessions            Session[]
   passwordResetTokens PasswordResetToken[]
+  idempotencyRecords  IdempotencyRecord[]
+  payments            Payment[]
+  refunds             Refund[]
 
   @@index([email])
   @@index([code])
@@ -88,16 +91,16 @@ model User {
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash    String   @unique
-  expiresAt    DateTime
-  revokedAt    DateTime?
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([userId])
   @@index([tokenHash])
@@ -105,13 +108,13 @@ model Session {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([tokenHash])
@@ -119,21 +122,21 @@ model PasswordResetToken {
 }
 
 model Voucher {
-  id            String    @id @default(cuid())
-  code          String    @unique
+  id            String   @id @default(cuid())
+  code          String   @unique
   description   String?  @db.Text
-  discountType  String    // "percentage" | "fixed"
+  discountType  String // "percentage" | "fixed"
   discountValue Float
-  minOrderValue Float     @default(0)
+  minOrderValue Float    @default(0)
   maxDiscount   Float?
-  startDate     DateTime  @default(now())
+  startDate     DateTime @default(now())
   endDate       DateTime
-  usageLimit    Int       @default(100)
-  usedCount     Int       @default(0)
+  usageLimit    Int      @default(100)
+  usedCount     Int      @default(0)
   sellerId      String
-  seller        User      @relation(fields: [sellerId], references: [id])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  seller        User     @relation(fields: [sellerId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([sellerId])
   @@index([code])
@@ -141,18 +144,18 @@ model Voucher {
 }
 
 model Address {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName        String
-  phone           String
-  province        String
-  district        String
-  ward            String
-  detailAddress   String
-  isDefault       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName      String
+  phone         String
+  province      String
+  district      String
+  ward          String
+  detailAddress String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([userId])
   @@map("address")
@@ -174,29 +177,29 @@ model BankInfo {
 }
 
 model Product {
-  id            String      @id @default(cuid())
-  code          String      @unique // PR001, PR002, etc
-  slug          String      @unique
+  id            String         @id @default(cuid())
+  code          String         @unique // PR001, PR002, etc
+  slug          String         @unique
   name          String
   price         Float
   originalPrice Float?
-  description   String?  @db.Text
+  description   String?        @db.Text
   image         String?
   emoji         String?
   gradient      String?
   categoryId    String?
-  categoryRef   Category?   @relation(fields: [categoryId], references: [id])
+  categoryRef   Category?      @relation(fields: [categoryId], references: [id])
   badge         String?
-  rating        Float       @default(0)
-  reviews       Int         @default(0) // Legacy count
-  inStock       Boolean     @default(true)
-  stockQuantity Int         @default(100)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  rating        Float          @default(0)
+  reviews       Int            @default(0) // Legacy count
+  inStock       Boolean        @default(true)
+  stockQuantity Int            @default(100)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   orderItems    OrderItem[]
   reviewsData   Review[]
   sellerId      String?
-  seller        User?       @relation("UserProducts", fields: [sellerId], references: [id])
+  seller        User?          @relation("UserProducts", fields: [sellerId], references: [id])
   images        ProductImage[]
 
   @@index([sellerId])
@@ -214,6 +217,7 @@ model Category {
   products    Product[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
   @@map("category")
 }
 
@@ -235,28 +239,32 @@ model Review {
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  customerName    String
-  customerEmail   String
-  customerPhone   String
-  shippingAddress String
-  paymentMethod   String
-  paymentStatus   String      @default("pending")
-  shippingFee     Float       @default(0)
-  shippingProvider String?
-  trackingNumber  String?
+  id                String      @id @default(cuid())
+  customerName      String
+  customerEmail     String
+  customerPhone     String
+  shippingAddress   String
+  paymentMethod     String
+  paymentStatus     String      @default("pending")
+  shippingFee       Float       @default(0)
+  shippingProvider  String?
+  trackingNumber    String?
   estimatedDelivery DateTime?
-  deliveredAt     DateTime?
-  total           Float
-  status          String      @default("pending")
-  userId          String?
-  user            User?       @relation(fields: [userId], references: [id])
-  shipperId       String?
-  shipper         User?       @relation("ShipperOrders", fields: [shipperId], references: [id])
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  orderItems      OrderItem[]
+  deliveredAt       DateTime?
+  total             Float
+  status            String      @default("pending")
+  userId            String?
+  user              User?       @relation(fields: [userId], references: [id])
+  shipperId         String?
+  shipper           User?       @relation("ShipperOrders", fields: [shipperId], references: [id])
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  orderItems        OrderItem[]
+  idempotencyScope  String?
+  idempotencyKey    String?     @db.VarChar(255)
+  payment           Payment?
 
+  @@unique([idempotencyScope, idempotencyKey])
   @@index([userId])
   @@index([shipperId])
   @@index([status])
@@ -265,13 +273,13 @@ model Order {
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   orderId   String
   productId String
   quantity  Int
   price     Float
-  order     Order    @relation(fields: [orderId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 
   @@unique([orderId, productId])
   @@index([orderId])
@@ -280,20 +288,21 @@ model OrderItem {
 }
 
 model SiteConfig {
-  id                String   @id @default("default")
-  siteName          String   @default("MTRUONG-STORE")
-  hotline           String   @default("1900 8888")
-  contactEmail      String   @default("support@mtruong.store")
-  address           String?  @default("Việt Nam")
-  codEnabled        Boolean  @default(true)
-  momoEnabled       Boolean  @default(true)
-  bankingEnabled    Boolean  @default(true)
-  vnpayEnabled      Boolean  @default(false)
-  stripeEnabled     Boolean  @default(false)
-  lowStockThreshold Int      @default(10)
-  maintenanceMode   Boolean  @default(false)
+  id                String    @id @default("default")
+  siteName          String    @default("MTRUONG-STORE")
+  hotline           String    @default("1900 8888")
+  contactEmail      String    @default("support@mtruong.store")
+  address           String?   @default("Việt Nam")
+  codEnabled        Boolean   @default(true)
+  momoEnabled       Boolean   @default(true)
+  bankingEnabled    Boolean   @default(true)
+  vnpayEnabled      Boolean   @default(false)
+  stripeEnabled     Boolean   @default(false)
+  lowStockThreshold Int       @default(10)
+  maintenanceMode   Boolean   @default(false)
   lastBackupAt      DateTime?
-  updatedAt         DateTime @updatedAt
+  updatedAt         DateTime  @updatedAt
+
   @@map("siteconfig")
 }
 
@@ -306,4 +315,92 @@ model ProductImage {
 
   @@index([productId])
   @@map("productimage")
+}
+
+model IdempotencyRecord {
+  id             String    @id @default(cuid())
+  key            String    @db.VarChar(255)
+  scopeId        String
+  user           User      @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  operation      String
+  method         String    @db.VarChar(16)
+  requestHash    String    @db.Char(64)
+  status         String    @default("PROCESSING") @db.VarChar(32)
+  responseStatus Int?
+  responseBody   String?   @db.LongText
+  resourceType   String?   @db.VarChar(64)
+  resourceId     String?
+  errorCode      String?
+  lockedAt       DateTime  @default(now())
+  completedAt    DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([scopeId, operation, key])
+  @@index([expiresAt])
+  @@index([status, expiresAt])
+  @@index([status, lockedAt])
+  @@map("idempotency_record")
+}
+
+model Payment {
+  id                     String   @id @default(cuid())
+  orderId                String   @unique
+  order                  Order    @relation(fields: [orderId], references: [id])
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id])
+  amount                 Float
+  status                 String   @default("completed") @db.VarChar(32)
+  operation              String
+  idempotencyKey         String   @db.VarChar(255)
+  provider               String   @default("internal_wallet") @db.VarChar(64)
+  providerOutcome        String   @default("SUCCEEDED") @db.VarChar(64)
+  providerIdempotencyKey String   @unique
+  providerTransactionId  String   @unique
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  refunds                Refund[]
+
+  @@unique([userId, operation, idempotencyKey])
+  @@index([userId, createdAt])
+  @@map("payment")
+}
+
+model Refund {
+  id               String   @id @default(cuid())
+  paymentId        String
+  payment          Payment  @relation(fields: [paymentId], references: [id])
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  amount           Float
+  status           String   @default("completed") @db.VarChar(32)
+  operation        String
+  idempotencyKey   String   @db.VarChar(255)
+  provider         String   @default("internal_wallet") @db.VarChar(64)
+  providerOutcome  String   @default("SUCCEEDED") @db.VarChar(64)
+  providerRefundId String   @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, operation, idempotencyKey])
+  @@index([paymentId, createdAt])
+  @@map("refund")
+}
+
+model WebhookEvent {
+  id              String    @id @default(cuid())
+  provider        String    @db.VarChar(64)
+  providerEventId String
+  requestHash     String    @db.Char(64)
+  eventType       String
+  status          String    @default("PROCESSING") @db.VarChar(32)
+  orderId         String?
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([provider, providerEventId])
+  @@index([status, createdAt])
+  @@map("webhook_event")
 }

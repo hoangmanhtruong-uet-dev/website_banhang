@@ -75,8 +75,8 @@ export async function POST(req: Request) {
     });
 
     return response;
-  } catch (error) {
-    console.error('[LOGIN]', error);
+  } catch (error: any) {
+    console.error('[LOGIN ERROR]:', error?.stack || error?.message || error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // Standard Next.js server configuration for Render
 };
 
 module.exports = nextConfig;

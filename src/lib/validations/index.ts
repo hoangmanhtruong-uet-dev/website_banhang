@@ -8,13 +8,21 @@ export const productSchema = z.object({
   image: z.string().optional().nullable(),
 });
 
-export const orderSchema = z.object({
+const orderBaseSchema = z.object({
   customerName: z.string().min(2, 'Vui lòng nhập họ tên'),
   customerEmail: z.string().email('Email không hợp lệ'),
   customerPhone: z.string().regex(/^0\d{9}$/, 'Số điện thoại không hợp lệ'),
   shippingAddress: z.string().min(10, 'Vui lòng nhập địa chỉ đầy đủ'),
   paymentMethod: z.enum(['COD', 'Banking', 'MoMo']),
 });
+
+export const orderSchema = orderBaseSchema;
+export const orderRequestSchema = orderBaseSchema.extend({
+  voucherCode: z.string().trim().min(1).max(191).optional(),
+  items: z.array(z.object({ productId: z.string().min(1), quantity: z.number().int().positive() })).min(1),
+});
+export const paymentRequestSchema = z.object({ orderId: z.string().min(1) });
+export const refundRequestSchema = z.object({ paymentId: z.string().min(1), amount: z.number().positive() });
 
 export const loginSchema = z.object({
   email: z.string().email('Email không hợp lệ'),

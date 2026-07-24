@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
 import { useToastStore } from '@/components/ui/Toast';
+import { clearCheckoutKey, getOrCreateCheckoutKey } from '@/lib/checkout-idempotency';
 
 interface CheckoutForm {
   customerName: string;
@@ -22,6 +23,7 @@ interface BankInfo {
 }
 
 const STORAGE_KEY = 'checkoutFormData';
+const CHECKOUT_USER_STORAGE_KEY = 'checkoutUserId';
 const BALANCE_STORAGE_KEY = 'paymentBalanceSimulator';
 const DEFAULT_BALANCE = {
   Banking: 5000000,
@@ -145,15 +147,19 @@ export default function PaymentPage() {
         price: item.product.price,
       }));
 
+      const checkoutUserId = window.sessionStorage.getItem(CHECKOUT_USER_STORAGE_KEY);
+      if (!checkoutUserId) throw new Error('Không xác định được người dùng checkout');
+      const requestPayload = { ...checkoutData, items: orderItems };
+      const idempotencyKey = await getOrCreateCheckoutKey(window.sessionStorage, checkoutUserId, requestPayload);
       const res = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...checkoutData, items: orderItems }),
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify(requestPayload),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Lỗi khi tạo đơn hàng.');
+        throw new Error(data.error?.message || 'Lỗi khi tạo đơn hàng.');
       }
 
       const newBalances = { ...balances };
@@ -169,6 +175,8 @@ export default function PaymentPage() {
       }
 
       window.sessionStorage.removeItem(STORAGE_KEY);
+      clearCheckoutKey(window.sessionStorage);
+      window.sessionStorage.removeItem(CHECKOUT_USER_STORAGE_KEY);
       clearCart();
       addToast(`Thanh toán thành công! Đã trừ ${formatPrice(total)} khỏi số dư ${method}. 🎉`);
       router.push('/profile/orders');

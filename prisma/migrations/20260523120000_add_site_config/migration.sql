@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE `SiteConfig` (
+CREATE TABLE `siteconfig` (
     `id` VARCHAR(191) NOT NULL DEFAULT 'default',
     `siteName` VARCHAR(191) NOT NULL DEFAULT 'MTRUONG-STORE',
     `hotline` VARCHAR(191) NOT NULL DEFAULT '1900 8888',
@@ -18,4 +18,4 @@ CREATE TABLE `SiteConfig` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-INSERT INTO `SiteConfig` (`id`, `updatedAt`) VALUES ('default', NOW(3));
+INSERT INTO `siteconfig` (`id`, `updatedAt`) VALUES ('default', NOW(3));

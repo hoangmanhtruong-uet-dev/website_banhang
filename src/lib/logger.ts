@@ -1,48 +1,34 @@
 import { env } from '@/config/env';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+type LogMeta = Record<string, unknown>;
 
 class Logger {
-  private format(level: LogLevel, message: string, meta?: any) {
+  private format(level: LogLevel, message: string, meta?: LogMeta) {
     const timestamp = new Date().toISOString();
-    const logObj = {
-      timestamp,
-      level,
-      message,
-      ...meta,
-      env: env.NODE_ENV,
-    };
-
-    if (env.NODE_ENV === 'production') {
-      return JSON.stringify(logObj);
-    }
-
+    const logObj = { timestamp, level, message, ...meta, env: env.NODE_ENV };
+    if (env.NODE_ENV === 'production') return JSON.stringify(logObj);
     const metaStr = meta ? ` | ${JSON.stringify(meta)}` : '';
     return `[${timestamp}] ${level.toUpperCase()}: ${message}${metaStr}`;
   }
 
-  info(message: string, meta?: any) {
+  info(message: string, meta?: LogMeta) {
     console.log(this.format('info', message, meta));
   }
 
-  warn(message: string, meta?: any) {
+  warn(message: string, meta?: LogMeta) {
     console.warn(this.format('warn', message, meta));
   }
 
-  error(message: string, error?: any, meta?: any) {
-    const errorMeta = error instanceof Error ? {
-      error: error.message,
-      stack: env.NODE_ENV === 'development' ? error.stack : undefined,
-      ...meta
-    } : { error, ...meta };
-    
+  error(message: string, error?: unknown, meta?: LogMeta) {
+    const errorMeta: LogMeta = error instanceof Error
+      ? { error: error.message, stack: env.NODE_ENV === 'development' ? error.stack : undefined, ...meta }
+      : { error, ...meta };
     console.error(this.format('error', message, errorMeta));
   }
 
-  debug(message: string, meta?: any) {
-    if (env.NODE_ENV === 'development') {
-      console.debug(this.format('debug', message, meta));
-    }
+  debug(message: string, meta?: LogMeta) {
+    if (env.NODE_ENV === 'development') console.debug(this.format('debug', message, meta));
   }
 }
 

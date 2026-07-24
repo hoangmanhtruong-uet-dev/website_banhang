@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { clearCheckoutKey } from '@/lib/checkout-idempotency';
 
 interface User {
   id: string;
@@ -89,6 +90,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch { /* ignore */ }
     set({ user: null, isAuthenticated: false });
+    clearCheckoutKey(window.sessionStorage);
+    window.sessionStorage.removeItem('checkoutUserId');
+    window.sessionStorage.removeItem('checkoutFormData');
     window.location.href = '/';
   },
 }));

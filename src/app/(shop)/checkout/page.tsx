@@ -6,6 +6,7 @@ import { orderSchema } from '@/lib/validations';
 import { useToastStore } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { clearCheckoutKey, getOrCreateCheckoutKey } from '@/lib/checkout-idempotency';
 
 type CheckoutForm = {
   customerName: string;
@@ -27,6 +28,7 @@ interface SavedAddress {
 }
 
 const STORAGE_KEY = 'checkoutFormData';
+const CHECKOUT_USER_STORAGE_KEY = 'checkoutUserId';
 
 function formatAddress(addr: SavedAddress) {
   return `${addr.detailAddress}, ${addr.ward}, ${addr.district}, ${addr.province}`;
@@ -37,6 +39,7 @@ export default function CheckoutPage() {
   const addToast = useToastStore(s => s.addToast);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [checkoutUserId, setCheckoutUserId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -66,6 +69,7 @@ export default function CheckoutPage() {
         if (meRes.ok) {
           const meData = await meRes.json();
           if (meData.user) {
+            setCheckoutUserId(meData.user.id);
             setFormData(prev => ({
               ...prev,
               customerName: meData.user.name || prev.customerName,
@@ -139,17 +143,22 @@ export default function CheckoutPage() {
           price: item.product.price,
         }));
 
+        if (!checkoutUserId) throw new Error('Không xác định được người dùng checkout');
+        const requestPayload = { ...formData, items: orderItems };
+        const idempotencyKey = await getOrCreateCheckoutKey(window.sessionStorage, checkoutUserId, requestPayload);
         const res = await fetch('/api/orders', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, items: orderItems }),
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+          body: JSON.stringify(requestPayload),
         });
 
         if (!res.ok) {
           const errorData = await res.json();
-          throw new Error(errorData.error || 'Lỗi khi tạo đơn hàng');
+          throw new Error(errorData.error?.message || 'Lỗi khi tạo đơn hàng');
         }
 
+        clearCheckoutKey(window.sessionStorage);
+        window.sessionStorage.removeItem(CHECKOUT_USER_STORAGE_KEY);
         addToast('Đặt hàng thành công! Đơn hàng đang được xử lý. 🎉');
         clearCart();
         router.push('/profile/orders');
@@ -157,7 +166,11 @@ export default function CheckoutPage() {
       }
 
       if (typeof window !== 'undefined') {
+        if (!checkoutUserId) throw new Error('Không xác định được người dùng checkout');
+        const orderItems = items.map(item => ({ productId: item.product.id, quantity: item.quantity, price: item.product.price }));
+        await getOrCreateCheckoutKey(window.sessionStorage, checkoutUserId, { ...formData, items: orderItems });
         window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+        window.sessionStorage.setItem(CHECKOUT_USER_STORAGE_KEY, checkoutUserId);
       }
       router.push(`/checkout/payment?method=${formData.paymentMethod}`);
     } catch (error) {
