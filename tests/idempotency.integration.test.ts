@@ -2,12 +2,13 @@ import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { NextRequest } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import prisma from '../src/lib/db';
 import { IdempotencyService } from '../src/lib/services/idempotency.service';
 import { OrderService, type CreateOrderInput } from '../src/lib/services/order.service';
 import { PaymentService, RefundService } from '../src/lib/services/payment.service';
 import { POST as webhookPost } from '../src/app/api/webhook/route';
+import { Money } from '../src/lib/utils/money';
 
 if (process.env.RUN_IDEMPOTENCY_INTEGRATION !== '1') {
   throw new Error('Integration tests require RUN_IDEMPOTENCY_INTEGRATION=1 and a dedicated *_test database.');
@@ -22,6 +23,13 @@ async function assertTestDatabase() {
 }
 
 async function cleanDomainData() {
+  await prisma.workerHeartbeat.deleteMany();
+  await prisma.notificationDelivery.deleteMany();
+  await prisma.processedOutboxEvent.deleteMany();
+  await prisma.domainAuditLog.deleteMany();
+  await prisma.walletLedger.deleteMany();
+  await prisma.outboxEvent.deleteMany();
+  await prisma.inventoryReservation.deleteMany();
   await prisma.webhookEvent.deleteMany();
   await prisma.idempotencyRecord.deleteMany();
   await prisma.refund.deleteMany();
@@ -162,7 +170,7 @@ test('barrier forces four same-key checkouts to one order/payment/stock/voucher/
   assert.equal(await prisma.idempotencyRecord.count({ where: { scopeId: user.id, operation: 'order:create', key } }), 1);
   assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: product.id } })).stockQuantity, 18);
   assert.equal((await prisma.voucher.findUniqueOrThrow({ where: { id: voucher.id } })).usedCount, 1);
-  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).balance, 985);
+  assert.equal(Money.serialize((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).balance), '985.0000');
 });
 
 test('key scope separates payload, users, operations, and independent checkout keys', async () => {
@@ -294,7 +302,8 @@ test('insufficient inventory and one-use voucher under different keys leave no l
   const results = await Promise.all(attempts);
   assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
   assert.equal((await prisma.voucher.findUniqueOrThrow({ where: { id: voucher.id } })).usedCount, 1);
-  assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: product.id } })).stockQuantity, 8);
+  const reservedProduct = await prisma.product.findUniqueOrThrow({ where: { id: product.id } });
+  assert.deepEqual({ stock: reservedProduct.stockQuantity, reserved: reservedProduct.reservedQuantity }, { stock: 10, reserved: 2 });
 });
 
 test('payment locking enforces one wallet charge, ownership/status guards, replay, conflict, and provider uniqueness', async () => {
@@ -312,7 +321,7 @@ test('payment locking enforces one wallet charge, ownership/status guards, repla
   const outcomes = await Promise.all(Array.from({ length: 4 }, run));
   assert.equal(new Set(outcomes.map((result) => result.resourceId)).size, 1);
   assert.equal(outcomes.filter((result) => result.replayed).length, 3);
-  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: owner.id } })).balance, 980);
+  assert.equal(Money.serialize((await prisma.user.findUniqueOrThrow({ where: { id: owner.id } })).balance), '980.0000');
   assert.equal(await prisma.payment.count({ where: { orderId: order.id } }), 1);
   await assert.rejects(prisma.$transaction((tx) => PaymentService.create(tx, { orderId: order.id, userId: stranger.id, idempotencyKey: 'foreign' })));
 
@@ -351,15 +360,15 @@ test('refund row lock prevents over-refund and enforces replay, payload conflict
     scopeId: owner.id, operation: `payment:refund:${payment.id}`, method: 'POST', key: fullKey,
     request: { paymentId: payment.id, amount: payment.amount },
     handler: async (tx) => {
-      const refund = await RefundService.create(tx, { paymentId: payment.id, userId: owner.id, amount: payment.amount, idempotencyKey: fullKey });
+      const refund = await RefundService.create(tx, { paymentId: payment.id, userId: owner.id, amount: payment.amount, currency: payment.currency, idempotencyKey: fullKey });
       return { status: 201, body: refund, resourceType: 'refund', resourceId: refund.id };
     },
   });
   const fullResults = await Promise.all(Array.from({ length: 4 }, fullRun));
   assert.equal(new Set(fullResults.map((result) => result.resourceId)).size, 1);
   assert.equal(await prisma.refund.count({ where: { paymentId: payment.id } }), 1);
-  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: owner.id } })).balance, 1000);
-  await assert.rejects(prisma.$transaction((tx) => RefundService.create(tx, { paymentId: payment.id, userId: stranger.id, amount: 1, idempotencyKey: 'foreign' })));
+  assert.equal(Money.serialize((await prisma.user.findUniqueOrThrow({ where: { id: owner.id } })).balance), '1000.0000');
+  await assert.rejects(prisma.$transaction((tx) => RefundService.create(tx, { paymentId: payment.id, userId: stranger.id, amount: new Prisma.Decimal('1'), currency: 'VND', idempotencyKey: 'foreign' })));
   await assert.rejects(IdempotencyService.execute({
     scopeId: owner.id, operation: `payment:refund:${payment.id}`, method: 'POST', key: fullKey,
     request: { paymentId: payment.id, amount: 1 }, handler: async () => { throw new Error('must-not-run'); },
@@ -370,12 +379,12 @@ test('refund row lock prevents over-refund and enforces replay, payload conflict
     orderId: partialOrder.id, userId: owner.id, idempotencyKey: `partial-payment:${suffix()}`,
   }));
   const partialAttempts = [12, 12].map((amount) => prisma.$transaction((tx) => RefundService.create(tx, {
-    paymentId: partialPayment.id, userId: owner.id, amount, idempotencyKey: `partial:${suffix()}`,
+    paymentId: partialPayment.id, userId: owner.id, amount: new Prisma.Decimal(amount), currency: 'VND', idempotencyKey: `partial:${suffix()}`,
   })).then((value) => ({ status: 'fulfilled' as const, value })).catch((reason: unknown) => ({ status: 'rejected' as const, reason })));
   const partialResults = await Promise.all(partialAttempts);
   assert.equal(partialResults.filter((result) => result.status === 'fulfilled').length, 1);
   const sum = await prisma.refund.aggregate({ where: { paymentId: partialPayment.id }, _sum: { amount: true } });
-  assert.equal(sum._sum.amount, 12);
+  assert.equal(Money.serialize(sum._sum.amount ?? '0'), '12.0000');
 });
 
 

@@ -7,5 +7,5 @@ export interface CartItem {
 
 export interface Cart {
   items: CartItem[];
-  total: number;
+  total: string;
 }

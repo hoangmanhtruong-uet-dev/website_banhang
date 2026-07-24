@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { formatPrice } from '@/lib/utils';
+import { addMoneyStrings, multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 import { useToastStore } from '@/components/ui/Toast';
 
 interface SellerOrderItem {
   id: string;
   quantity: number;
-  price: number;
+  price: string;
   product: { name: string; emoji?: string | null };
 }
 
@@ -17,7 +18,7 @@ interface SellerOrder {
   customerName: string;
   customerPhone: string;
   shippingAddress: string;
-  total: number;
+  total: string;
   trackingNumber?: string | null;
   createdAt: string;
   user?: { name: string; email: string } | null;
@@ -56,7 +57,7 @@ export default function SellerOrdersPage() {
     : orders.filter(o => o.status === filterStatus);
 
   const sellerTotal = (order: SellerOrder) =>
-    order.orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    addMoneyStrings(order.orderItems.map((item) => multiplyMoneyByQuantity(item.price, item.quantity)));
 
   const getStatusLabel = (status: string) => {
     const map: Record<string, string> = {
@@ -137,7 +138,7 @@ export default function SellerOrdersPage() {
                 {order.orderItems.map(item => (
                   <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
                     <span>{item.product.emoji || '📦'} {item.product.name} × {item.quantity}</span>
-                    <span>{formatPrice(item.price * item.quantity)}</span>
+                    <span>{formatPrice(multiplyMoneyByQuantity(item.price, item.quantity))}</span>
                   </div>
                 ))}
               </div>

@@ -5,14 +5,18 @@ export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | '
 export interface Order {
   id: string;
   items: CartItem[];
-  total: number;
+  total: string;
   status: OrderStatus;
   paymentStatus: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
   shippingAddress: string;
-  shippingFee: number;
+  subtotal?: string;
+  discountAmount?: string;
+  shippingFee: string;
+  taxAmount?: string;
+  currency: 'VND';
   shippingProvider?: string;
   trackingNumber?: string;
   estimatedDelivery?: string;

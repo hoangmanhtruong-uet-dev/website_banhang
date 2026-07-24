@@ -68,8 +68,8 @@ export default function NewProductPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          price: Number(formData.price),
-          originalPrice: formData.originalPrice ? Number(formData.originalPrice) : null,
+          price: formData.price,
+          originalPrice: formData.originalPrice || null,
           images: images,
         }),
       });

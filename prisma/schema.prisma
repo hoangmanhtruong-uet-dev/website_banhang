@@ -49,6 +49,13 @@ enum OrderStatus {
   returned
 }
 
+enum InventoryReservationStatus {
+  ACTIVE
+  CONSUMED
+  RELEASED
+  EXPIRED
+}
+
 enum DiscountType {
   percentage
   fixed
@@ -67,7 +74,8 @@ model User {
   gender              String? // "male" | "female" | "other"
   birthday            DateTime?
   avatar              String?
-  balance             Float                @default(0)
+  balance             Decimal              @default(0) @db.Decimal(19, 4)
+  currency            String               @default("VND") @db.Char(3)
   licensePlate        String? // Biển số xe cho Shipper
   transportType       String? // Loại phương tiện: Xe máy, Ô tô...
   createdAt           DateTime             @default(now())
@@ -84,6 +92,7 @@ model User {
   idempotencyRecords  IdempotencyRecord[]
   payments            Payment[]
   refunds             Refund[]
+  walletLedgerEntries WalletLedger[]
 
   @@index([email])
   @@index([code])
@@ -126,9 +135,10 @@ model Voucher {
   code          String   @unique
   description   String?  @db.Text
   discountType  String // "percentage" | "fixed"
-  discountValue Float
-  minOrderValue Float    @default(0)
-  maxDiscount   Float?
+  discountValue Decimal  @db.Decimal(19, 4)
+  minOrderValue Decimal  @default(0) @db.Decimal(19, 4)
+  maxDiscount   Decimal? @db.Decimal(19, 4)
+  currency      String   @default("VND") @db.Char(3)
   startDate     DateTime @default(now())
   endDate       DateTime
   usageLimit    Int      @default(100)
@@ -177,30 +187,33 @@ model BankInfo {
 }
 
 model Product {
-  id            String         @id @default(cuid())
-  code          String         @unique // PR001, PR002, etc
-  slug          String         @unique
-  name          String
-  price         Float
-  originalPrice Float?
-  description   String?        @db.Text
-  image         String?
-  emoji         String?
-  gradient      String?
-  categoryId    String?
-  categoryRef   Category?      @relation(fields: [categoryId], references: [id])
-  badge         String?
-  rating        Float          @default(0)
-  reviews       Int            @default(0) // Legacy count
-  inStock       Boolean        @default(true)
-  stockQuantity Int            @default(100)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  orderItems    OrderItem[]
-  reviewsData   Review[]
-  sellerId      String?
-  seller        User?          @relation("UserProducts", fields: [sellerId], references: [id])
-  images        ProductImage[]
+  id                    String                 @id @default(cuid())
+  code                  String                 @unique // PR001, PR002, etc
+  slug                  String                 @unique
+  name                  String
+  price                 Decimal                @db.Decimal(19, 4)
+  originalPrice         Decimal?               @db.Decimal(19, 4)
+  currency              String                 @default("VND") @db.Char(3)
+  description           String?                @db.Text
+  image                 String?
+  emoji                 String?
+  gradient              String?
+  categoryId            String?
+  categoryRef           Category?              @relation(fields: [categoryId], references: [id])
+  badge                 String?
+  rating                Float                  @default(0)
+  reviews               Int                    @default(0) // Legacy count
+  inStock               Boolean                @default(true)
+  stockQuantity         Int                    @default(100)
+  reservedQuantity      Int                    @default(0)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  orderItems            OrderItem[]
+  reviewsData           Review[]
+  sellerId              String?
+  seller                User?                  @relation("UserProducts", fields: [sellerId], references: [id])
+  images                ProductImage[]
+  inventoryReservations InventoryReservation[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -239,30 +252,36 @@ model Review {
 }
 
 model Order {
-  id                String      @id @default(cuid())
-  customerName      String
-  customerEmail     String
-  customerPhone     String
-  shippingAddress   String
-  paymentMethod     String
-  paymentStatus     String      @default("pending")
-  shippingFee       Float       @default(0)
-  shippingProvider  String?
-  trackingNumber    String?
-  estimatedDelivery DateTime?
-  deliveredAt       DateTime?
-  total             Float
-  status            String      @default("pending")
-  userId            String?
-  user              User?       @relation(fields: [userId], references: [id])
-  shipperId         String?
-  shipper           User?       @relation("ShipperOrders", fields: [shipperId], references: [id])
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  orderItems        OrderItem[]
-  idempotencyScope  String?
-  idempotencyKey    String?     @db.VarChar(255)
-  payment           Payment?
+  id                    String                 @id @default(cuid())
+  customerName          String
+  customerEmail         String
+  customerPhone         String
+  shippingAddress       String
+  paymentMethod         String
+  paymentStatus         String                 @default("pending")
+  subtotal              Decimal                @default(0) @db.Decimal(19, 4)
+  discountAmount        Decimal                @default(0) @db.Decimal(19, 4)
+  shippingFee           Decimal                @default(0) @db.Decimal(19, 4)
+  taxAmount             Decimal                @default(0) @db.Decimal(19, 4)
+  shippingProvider      String?
+  trackingNumber        String?
+  estimatedDelivery     DateTime?
+  deliveredAt           DateTime?
+  total                 Decimal                @db.Decimal(19, 4)
+  currency              String                 @default("VND") @db.Char(3)
+  status                String                 @default("pending")
+  userId                String?
+  user                  User?                  @relation(fields: [userId], references: [id])
+  shipperId             String?
+  shipper               User?                  @relation("ShipperOrders", fields: [shipperId], references: [id])
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  orderItems            OrderItem[]
+  idempotencyScope      String?
+  idempotencyKey        String?                @db.VarChar(255)
+  payment               Payment?
+  inventoryReservations InventoryReservation[]
+  outboxEvents          OutboxEvent[]
 
   @@unique([idempotencyScope, idempotencyKey])
   @@index([userId])
@@ -273,18 +292,73 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  price     Float
-  order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  id                   String                @id @default(cuid())
+  orderId              String
+  productId            String
+  quantity             Int
+  price                Decimal               @db.Decimal(19, 4)
+  lineTotal            Decimal               @default(0) @db.Decimal(19, 4)
+  currency             String                @default("VND") @db.Char(3)
+  order                Order                 @relation(fields: [orderId], references: [id])
+  product              Product               @relation(fields: [productId], references: [id])
+  inventoryReservation InventoryReservation?
 
   @@unique([orderId, productId])
   @@index([orderId])
   @@index([productId])
   @@map("orderitem")
+}
+
+model InventoryReservation {
+  id          String                     @id @default(cuid())
+  orderId     String
+  orderItemId String                     @unique(map: "inv_res_orderItem_key")
+  productId   String
+  quantity    Int
+  status      InventoryReservationStatus @default(ACTIVE)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  releasedAt  DateTime?
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  order       Order                      @relation(fields: [orderId], references: [id], map: "inv_res_order_fk")
+  orderItem   OrderItem                  @relation(fields: [orderItemId], references: [id], map: "inv_res_orderitem_fk")
+  product     Product                    @relation(fields: [productId], references: [id], map: "inv_res_product_fk")
+
+  @@index([status, expiresAt], map: "inv_res_status_expires_idx")
+  @@index([orderId, status], map: "inv_res_order_status_idx")
+  @@index([productId, status], map: "inv_res_product_status_idx")
+  @@map("inventory_reservation")
+}
+
+model OutboxEvent {
+  id             String    @id @default(cuid())
+  aggregateType  String    @db.VarChar(64)
+  aggregateId    String
+  eventType      String    @db.VarChar(96)
+  idempotencyKey String    @unique(map: "outbox_event_idem_key") @db.VarChar(191)
+  payload        String    @db.LongText
+  status         String    @default("PENDING") @db.VarChar(32)
+  attemptCount   Int       @default(0)
+  maxAttempts    Int       @default(10)
+  nextAttemptAt  DateTime  @default(now())
+  lockedAt       DateTime?
+  lockedUntil    DateTime?
+  lockedBy       String?   @db.VarChar(191)
+  processedAt    DateTime?
+  deadLetteredAt DateTime?
+  lastError      String?   @db.Text
+  lastErrorCode  String?   @db.VarChar(64)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  orderId        String?
+  order          Order?    @relation(fields: [orderId], references: [id], map: "outbox_event_order_fk")
+
+  @@index([status, nextAttemptAt, id], map: "outbox_status_next_idx")
+  @@index([status, lockedUntil], map: "outbox_status_lease_idx")
+  @@index([eventType, status], map: "outbox_type_status_idx")
+  @@index([aggregateType, aggregateId], map: "outbox_event_aggregate_idx")
+  @@map("outbox_event")
 }
 
 model SiteConfig {
@@ -350,7 +424,7 @@ model Payment {
   order                  Order    @relation(fields: [orderId], references: [id])
   userId                 String
   user                   User     @relation(fields: [userId], references: [id])
-  amount                 Float
+  amount                 Decimal  @db.Decimal(19, 4)
   status                 String   @default("completed") @db.VarChar(32)
   operation              String
   idempotencyKey         String   @db.VarChar(255)
@@ -358,6 +432,8 @@ model Payment {
   providerOutcome        String   @default("SUCCEEDED") @db.VarChar(64)
   providerIdempotencyKey String   @unique
   providerTransactionId  String   @unique
+  currency               String   @default("VND") @db.Char(3)
+  refundedAmount         Decimal  @default(0) @db.Decimal(19, 4)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   refunds                Refund[]
@@ -368,24 +444,115 @@ model Payment {
 }
 
 model Refund {
-  id               String   @id @default(cuid())
+  id               String        @id @default(cuid())
   paymentId        String
-  payment          Payment  @relation(fields: [paymentId], references: [id])
+  payment          Payment       @relation(fields: [paymentId], references: [id])
   userId           String
-  user             User     @relation(fields: [userId], references: [id])
-  amount           Float
-  status           String   @default("completed") @db.VarChar(32)
+  user             User          @relation(fields: [userId], references: [id])
+  amount           Decimal       @db.Decimal(19, 4)
+  status           String        @default("completed") @db.VarChar(32)
   operation        String
-  idempotencyKey   String   @db.VarChar(255)
-  provider         String   @default("internal_wallet") @db.VarChar(64)
-  providerOutcome  String   @default("SUCCEEDED") @db.VarChar(64)
-  providerRefundId String   @unique
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  idempotencyKey   String        @db.VarChar(255)
+  provider         String        @default("internal_wallet") @db.VarChar(64)
+  providerOutcome  String        @default("SUCCEEDED") @db.VarChar(64)
+  providerRefundId String?       @unique
+  sourceEventId    String?       @unique(map: "refund_source_event_key")
+  approvalKey      String?       @unique(map: "refund_approval_key") @db.VarChar(191)
+  currency         String        @default("VND") @db.Char(3)
+  approvedBy       String?
+  approvedAt       DateTime?
+  completedAt      DateTime?
+  failureReason    String?       @db.Text
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  walletLedger     WalletLedger?
 
   @@unique([userId, operation, idempotencyKey])
   @@index([paymentId, createdAt])
   @@map("refund")
+}
+
+model ProcessedOutboxEvent {
+  id           String   @id @default(cuid())
+  consumerName String   @db.VarChar(96)
+  eventId      String
+  resultHash   String?  @db.Char(64)
+  processedAt  DateTime @default(now())
+
+  @@unique([consumerName, eventId], map: "processed_consumer_event_key")
+  @@index([eventId], map: "processed_event_idx")
+  @@map("processed_outbox_event")
+}
+
+model NotificationDelivery {
+  id                     String    @id @default(cuid())
+  eventId                String
+  consumerName           String    @db.VarChar(96)
+  idempotencyKey         String    @unique(map: "notification_idem_key") @db.VarChar(191)
+  channel                String    @default("log") @db.VarChar(32)
+  recipient              String    @db.VarChar(191)
+  template               String    @db.VarChar(96)
+  status                 String    @default("pending") @db.VarChar(32)
+  providerMessageId      String?   @db.VarChar(191)
+  providerIdempotencyKey String    @unique(map: "notification_provider_idem_key") @db.VarChar(191)
+  lastError              String?   @db.Text
+  sentAt                 DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([consumerName, eventId], map: "notification_consumer_event_key")
+  @@index([status, createdAt], map: "notification_status_created_idx")
+  @@map("notification_delivery")
+}
+
+model WalletLedger {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], map: "wallet_ledger_user_fk")
+  refundId         String?  @unique(map: "wallet_ledger_refund_key")
+  refund           Refund?  @relation(fields: [refundId], references: [id], map: "wallet_ledger_refund_fk")
+  deterministicKey String   @unique(map: "wallet_ledger_deterministic_key") @db.VarChar(191)
+  referenceType    String   @db.VarChar(64)
+  referenceId      String   @db.VarChar(191)
+  amount           Decimal  @db.Decimal(19, 4)
+  balanceBefore    Decimal  @db.Decimal(19, 4)
+  balanceAfter     Decimal  @db.Decimal(19, 4)
+  currency         String   @default("VND") @db.Char(3)
+  entryType        String   @db.VarChar(64)
+  createdAt        DateTime @default(now())
+
+  @@index([userId, createdAt], map: "wallet_ledger_user_created_idx")
+  @@map("wallet_ledger")
+}
+
+model DomainAuditLog {
+  id         String   @id @default(cuid())
+  action     String   @db.VarChar(96)
+  actorId    String?  @db.VarChar(191)
+  entityType String   @db.VarChar(64)
+  entityId   String   @db.VarChar(191)
+  details    String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt], map: "audit_entity_created_idx")
+  @@index([action, createdAt], map: "audit_action_created_idx")
+  @@map("domain_audit_log")
+}
+
+model WorkerHeartbeat {
+  workerId      String    @id @db.VarChar(191)
+  status        String    @db.VarChar(32)
+  version       String    @db.VarChar(64)
+  lastPollAt    DateTime
+  lastSuccessAt DateTime?
+  lastErrorAt   DateTime?
+  inflight      Int       @default(0)
+  expiresAt     DateTime
+  lastError     String?   @db.Text
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, expiresAt], map: "worker_status_expires_idx")
+  @@map("worker_heartbeat")
 }
 
 model WebhookEvent {

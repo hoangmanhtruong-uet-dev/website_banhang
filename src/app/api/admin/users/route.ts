@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { serializeMoneyFields } from '@/lib/utils/money';
 import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
@@ -31,7 +32,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(users);
+    return NextResponse.json(serializeMoneyFields(users));
   } catch (error) {
     console.error('[GET /api/admin/users]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json(user, { status: 201 });
+    return NextResponse.json(serializeMoneyFields(user), { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Email đã tồn tại hoặc lỗi hệ thống' }, { status: 400 });
   }

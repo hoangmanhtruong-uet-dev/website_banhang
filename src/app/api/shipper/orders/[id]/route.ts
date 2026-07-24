@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { serializeMoneyFields } from '@/lib/utils/money';
 import prisma from '@/lib/db';
 import { getSession, canAccessShipper } from '@/lib/auth';
 
@@ -43,7 +44,7 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json(serializeMoneyFields(updated));
   } catch (error) {
     console.error('[PATCH /api/shipper/orders/:id]', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

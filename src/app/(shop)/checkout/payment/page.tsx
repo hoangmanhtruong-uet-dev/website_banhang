@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
+import { compareMoneyStrings, multiplyMoneyByQuantity, subtractMoneyStrings } from '@/lib/utils/client-money';
 import { useToastStore } from '@/components/ui/Toast';
 import { clearCheckoutKey, getOrCreateCheckoutKey } from '@/lib/checkout-idempotency';
 
@@ -26,8 +27,8 @@ const STORAGE_KEY = 'checkoutFormData';
 const CHECKOUT_USER_STORAGE_KEY = 'checkoutUserId';
 const BALANCE_STORAGE_KEY = 'paymentBalanceSimulator';
 const DEFAULT_BALANCE = {
-  Banking: 5000000,
-  MoMo: 2000000,
+  Banking: '5000000.0000',
+  MoMo: '2000000.0000',
 };
 
 export default function PaymentPage() {
@@ -112,7 +113,7 @@ export default function PaymentPage() {
         addToast('Mã PIN ngân hàng phải gồm 6 chữ số.');
         return;
       }
-      if (total > balances.Banking) {
+      if (compareMoneyStrings(total, balances.Banking) > 0) {
         addToast('Tài khoản ngân hàng không đủ số dư.');
         return;
       }
@@ -127,7 +128,7 @@ export default function PaymentPage() {
         addToast('Mã PIN MoMo phải gồm 6 chữ số.');
         return;
       }
-      if (total > balances.MoMo) {
+      if (compareMoneyStrings(total, balances.MoMo) > 0) {
         addToast('Số dư ví MoMo không đủ.');
         return;
       }
@@ -164,9 +165,9 @@ export default function PaymentPage() {
 
       const newBalances = { ...balances };
       if (method === 'Banking') {
-        newBalances.Banking = Math.max(0, balances.Banking - total);
+        newBalances.Banking = subtractMoneyStrings(balances.Banking, total);
       } else if (method === 'MoMo') {
-        newBalances.MoMo = Math.max(0, balances.MoMo - total);
+        newBalances.MoMo = subtractMoneyStrings(balances.MoMo, total);
       }
       setBalances(newBalances);
       if (typeof window !== 'undefined') {
@@ -276,7 +277,7 @@ export default function PaymentPage() {
             {items.map(item => (
               <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '14px' }}>
                 <span>{item.product.name} x {item.quantity}</span>
-                <span>{formatPrice(item.product.price * item.quantity)}</span>
+                <span>{formatPrice(multiplyMoneyByQuantity(item.product.price, item.quantity))}</span>
               </div>
             ))}
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '20px', paddingTop: '20px', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>

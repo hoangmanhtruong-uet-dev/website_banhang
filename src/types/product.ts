@@ -1,8 +1,9 @@
 export interface Product {
   id: string;
   name: string;
-  price: number;
-  originalPrice?: number;
+  price: string;
+  originalPrice?: string;
+  currency: 'VND';
   description: string;
   category: string;
   rating: number;

@@ -46,13 +46,13 @@ test('voucher with one remaining use is protected by transactional atomic update
   assert.match(source, /voucherUpdate\.count !== 1/);
 });
 
-test('stock with one remaining item is protected by atomic decrement guard', () => {
-  const source = read('src/lib/services/order.service.ts');
+test('stock with one remaining item is protected by atomic reservation guard', () => {
+  const source = read('src/lib/services/inventory.service.ts');
 
-  assert.match(source, /tx\.product\.updateMany/);
-  assert.match(source, /stockQuantity:\s*\{\s*gte:\s*item\.quantity\s*\}/);
-  assert.match(source, /stockQuantity:\s*\{\s*decrement:\s*item\.quantity\s*\}/);
-  assert.match(source, /stockUpdate\.count !== 1/);
+  assert.match(source, /stockQuantity - reservedQuantity >= \$\{item\.quantity\}/);
+  assert.match(source, /reservedQuantity = reservedQuantity \+ \$\{item\.quantity\}/);
+  assert.match(source, /affected !== 1/);
+  assert.match(source, /InventoryReservationStatus\.ACTIVE/);
 });
 
 test('production error response hides stack trace and internal message', () => {
@@ -80,8 +80,8 @@ test('mass assignment sensitive order fields are server-owned', () => {
   const service = read('src/lib/services/order.service.ts');
 
   assert.doesNotMatch(route, /totalAmount|paymentStatus/);
-  assert.match(service, /const total = Math\.max\(0, subtotal - discount\)/);
-  assert.match(service, /paymentStatus = 'paid'|paymentStatus\s*=\s*'pending'/);
+  assert.match(service, /const total = Money\.round\(Money\.add\(Money\.subtract\(subtotal, discount\)/);
+  assert.match(service, /paymentStatus:\s*'pending'/);
   assert.match(service, /userId,/);
   assert.match(route, /if \(!session\) throw new AuthenticationError/);
 });

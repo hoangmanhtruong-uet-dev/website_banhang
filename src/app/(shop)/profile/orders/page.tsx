@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { formatPrice } from '@/lib/utils';
+import { multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 interface OrderItemData {
   id: string;
   quantity: number;
-  price: number;
+  price: string;
   product: { name: string; emoji: string; gradient: string; };
 }
 
@@ -13,7 +14,7 @@ interface OrderData {
   status: string;
   paymentMethod: string;
   shippingAddress: string;
-  total: number;
+  total: string;
   createdAt: string;
   orderItems: OrderItemData[];
 }
@@ -107,7 +108,7 @@ export default function UserOrdersPage() {
                       <p style={{ fontWeight: 600, fontSize: '14px' }}>{item.product.name}</p>
                       <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Số lượng: {item.quantity}</p>
                     </div>
-                    <p style={{ fontWeight: 600 }}>{formatPrice(item.price * item.quantity)}</p>
+                    <p style={{ fontWeight: 600 }}>{formatPrice(multiplyMoneyByQuantity(item.price, item.quantity))}</p>
                   </div>
                 ))}
               </div>

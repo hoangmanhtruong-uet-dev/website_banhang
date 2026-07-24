@@ -1,6 +1,7 @@
 'use client';
 import { useParams } from 'next/navigation';
 import { formatPrice } from '@/lib/utils';
+import { percentageOff } from '@/lib/utils/client-money';
 import { useState, useEffect, useTransition } from 'react';
 import { useCartStore } from '@/store/cartStore';
 import { useToastStore } from '@/components/ui/Toast';
@@ -122,7 +123,7 @@ export default function ProductDetailPage() {
             )}
             {product.originalPrice && (
               <span style={{ background: 'rgba(239,68,68,0.9)', color: '#fff', fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px' }}>
-                -{Math.round((1 - product.price / product.originalPrice) * 100)}%
+                -{percentageOff(product.price, product.originalPrice)}%
               </span>
             )}
           </div>

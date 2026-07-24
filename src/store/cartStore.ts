@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Product } from '@/types/product';
+import { addMoneyStrings, multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 
 interface CartItem {
   product: Product;
@@ -13,7 +14,7 @@ interface CartState {
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  getTotal: () => number;
+  getTotal: () => string;
   getItemCount: () => number;
 }
 
@@ -58,7 +59,7 @@ export const useCartStore = create<CartState>()(
       clearCart: () => set({ items: [] }),
 
       getTotal: () => {
-        return get().items.reduce((total, item) => total + item.product.price * item.quantity, 0);
+        return addMoneyStrings(get().items.map((item) => multiplyMoneyByQuantity(item.product.price, item.quantity)));
       },
 
       getItemCount: () => {

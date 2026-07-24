@@ -57,7 +57,8 @@ test('webhook verifies HMAC before writing its durable event record', () => {
   assert.ok(source.indexOf('validSignature(') < source.indexOf('tx.webhookEvent.create'));
   assert.match(source, /timingSafeEqual/);
   assert.match(source, /provider_providerEventId/);
-  assert.match(source, /currentRank < ORDER_RANK\.processing/);
+  assert.match(source, /PaymentService\.recordWebhookSuccess/);
+  assert.ok(source.indexOf('tx.webhookEvent.create') < source.indexOf('PaymentService.recordWebhookSuccess'));
 });
 test('checkout key lifecycle is stable per user/payload/tab and resets on mutations, expiry, or success', async () => {
   class MemoryStorage implements StorageLike {

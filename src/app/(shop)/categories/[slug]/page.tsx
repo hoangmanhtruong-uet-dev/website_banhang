@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { mockProducts } from '@/lib/mockData';
 import ProductCard from '@/components/product/ProductCard';
 import { use } from 'react';
+import { compareMoneyStrings } from '@/lib/utils/client-money';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -35,7 +36,7 @@ export default function CategoryDetailPage(props: PageProps) {
     let list = [...categoryProducts];
 
     // Filter by price
-    list = list.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
+    list = list.filter(p => compareMoneyStrings(p.price, priceRange[0]) >= 0 && compareMoneyStrings(p.price, priceRange[1]) <= 0);
 
     // Filter by rating
     if (selectedRating > 0) {
@@ -43,8 +44,8 @@ export default function CategoryDetailPage(props: PageProps) {
     }
 
     // Sort
-    if (sortBy === 'price-asc') list.sort((a, b) => a.price - b.price);
-    else if (sortBy === 'price-desc') list.sort((a, b) => b.price - a.price);
+    if (sortBy === 'price-asc') list.sort((a, b) => compareMoneyStrings(a.price, b.price));
+    else if (sortBy === 'price-desc') list.sort((a, b) => compareMoneyStrings(b.price, a.price));
     else if (sortBy === 'rating') list.sort((a, b) => b.rating - a.rating);
     else if (sortBy === 'newest') list.sort((a, b) => parseInt(b.id) - parseInt(a.id));
 

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Product } from '@/types/product';
 import { useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
+import { percentageOff } from '@/lib/utils/client-money';
 import { useState } from 'react';
 
 function getBadgeClass(badge?: string) {
@@ -50,7 +51,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
             <span style={{ position:'absolute', top:'12px', right:'12px', zIndex:2,
               background:'rgba(239,68,68,0.9)', color:'#fff',
               fontSize:'11px', fontWeight:700, padding:'4px 8px', borderRadius:'6px' }}>
-              -{Math.round((1 - product.price / product.originalPrice) * 100)}%
+              -{percentageOff(product.price, product.originalPrice)}%
             </span>
           )}
         </div>

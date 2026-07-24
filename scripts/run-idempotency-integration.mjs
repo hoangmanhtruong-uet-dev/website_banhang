@@ -29,8 +29,12 @@ function run(command, args) {
 try {
   if (!managedExternally) run('docker', ['compose', '-f', 'docker-compose.integration.yml', 'up', '-d', '--wait']);
   run(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy']);
+  if (!managedExternally) {
+    run(process.execPath, ['scripts/test-outbox-migration-upgrade.mjs']);
+    run(process.execPath, ['scripts/test-money-migration-upgrade.mjs']);
+  }
   run(process.execPath, ['node_modules/prisma/build/index.js', 'generate']);
-  run(process.execPath, ['node_modules/tsx/dist/cli.mjs', '--test', 'tests/idempotency.integration.test.ts']);
+  run(process.execPath, ['node_modules/tsx/dist/cli.mjs', '--test', '--test-concurrency=1', 'tests/idempotency.integration.test.ts', 'tests/inventory.integration.test.ts', 'tests/outbox.integration.test.ts', 'tests/money-correctness.integration.test.ts']);
 } finally {
   if (!managedExternally && process.env.KEEP_INTEGRATION_DB !== '1') {
     spawnSync('docker', ['compose', '-f', 'docker-compose.integration.yml', 'down', '--volumes'], {

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { serializeMoneyFields } from '@/lib/utils/money';
 import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
@@ -29,14 +30,14 @@ export async function GET() {
     const outOfStock = products.filter(p => p.stockQuantity <= 0).length;
 
     return NextResponse.json(
-      {
+      serializeMoneyFields({
         products,
         stats: {
           totalSku: products.length,
           lowStock,
           outOfStock,
         },
-      },
+      }),
       { headers: { 'Cache-Control': 'no-store, no-cache' } }
     );
   } catch (error) {

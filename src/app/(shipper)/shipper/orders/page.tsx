@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { formatPrice } from '@/lib/utils';
+import { multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 
 interface OrderItem {
   id: string;
   quantity: number;
-  price: number;
-  product: { name: string; price: number; image?: string | null; emoji?: string | null };
+  price: string;
+  product: { name: string; price: string; image?: string | null; emoji?: string | null };
 }
 
 interface ShipperInfo {
@@ -30,8 +31,8 @@ interface ShipperOrder {
   shippingAddress: string;
   paymentMethod: string;
   paymentStatus: string;
-  shippingFee: number;
-  total: number;
+  shippingFee: string;
+  total: string;
   shipperId?: string | null;
   shipper?: ShipperInfo | null;
   orderItems: OrderItem[];
@@ -401,7 +402,7 @@ export default function ShipperOrdersPage() {
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>x{item.quantity}</div>
                     </div>
                   </div>
-                  <div style={{ fontWeight: 600, color: 'var(--accent)' }}>{formatPrice(item.price * item.quantity)}</div>
+                  <div style={{ fontWeight: 600, color: 'var(--accent)' }}>{formatPrice(multiplyMoneyByQuantity(item.price, item.quantity))}</div>
                 </div>
               ))}
             </div>

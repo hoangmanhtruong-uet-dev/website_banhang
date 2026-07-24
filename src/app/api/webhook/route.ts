@@ -8,6 +8,7 @@ import { AuthenticationError, IdempotencyConflictError, ValidationError } from '
 import { logger } from '@/lib/logger';
 import { requestFingerprint } from '@/lib/idempotency';
 
+import { PaymentService } from '@/lib/services/payment.service';
 const EVENT_STATUS = {
   'payment.succeeded': 'success',
   'payment.failed': 'failed',
@@ -23,8 +24,6 @@ const webhookSchema = z.object({
 }).refine((event) => EVENT_STATUS[event.eventType] === event.status, {
   message: 'Webhook eventType and status do not match', path: ['status'],
 });
-
-const ORDER_RANK: Record<string, number> = { pending: 0, confirmed: 1, processing: 2, shipped: 3, delivered: 4 };
 
 function parseTimestamp(value: string | null): number {
   if (!value || !/^\d{10}$/.test(value)) throw new AuthenticationError('Invalid webhook timestamp');
@@ -70,20 +69,10 @@ export const POST = createHandler(async (req: NextRequest) => {
       const order = await tx.order.findUnique({ where: { id: event.orderId } });
       if (!order) throw new ValidationError('Webhook references an unknown order');
 
-      const currentRank = ORDER_RANK[order.status] ?? Number.MAX_SAFE_INTEGER;
-      const shouldAdvanceOrder = event.status === 'success' && currentRank < ORDER_RANK.processing;
-      const shouldMarkPayment = event.status === 'success' && !['paid', 'refunded'].includes(order.paymentStatus);
       const shouldMarkFailed = event.status === 'failed' && order.paymentStatus === 'pending';
-      const updatedOrder = shouldAdvanceOrder || shouldMarkPayment || shouldMarkFailed
-        ? await tx.order.update({
-            where: { id: order.id },
-            data: {
-              ...(shouldAdvanceOrder ? { status: 'processing' } : {}),
-              ...(shouldMarkPayment ? { paymentStatus: 'paid' } : {}),
-              ...(shouldMarkFailed ? { paymentStatus: 'failed' } : {}),
-            },
-          })
-        : order;
+      if (event.status === 'success') await PaymentService.recordWebhookSuccess(tx, { orderId: order.id, provider: event.provider, providerEventId: event.eventId });
+      else if (shouldMarkFailed) await tx.order.update({ where: { id: order.id }, data: { paymentStatus: 'failed' } });
+      const updatedOrder = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
 
       await tx.webhookEvent.update({ where: { id: inbox.id }, data: { status: 'COMPLETED', processedAt: new Date() } });
       return updatedOrder;

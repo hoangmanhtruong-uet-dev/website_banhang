@@ -15,10 +15,10 @@ export type ProviderResult =
 
 export interface PaymentProvider {
   readonly name: string;
-  createPayment(input: { orderId: string; userId: string; amount: number }, providerIdempotencyKey: string): Promise<ProviderResult>;
+  createPayment(input: { orderId: string; userId: string; amount: string; currency: string }, providerIdempotencyKey: string): Promise<ProviderResult>;
   getPaymentByIdempotencyKey(providerIdempotencyKey: string): Promise<ProviderResult | null>;
   getPaymentByTransactionId(transactionId: string): Promise<ProviderResult | null>;
-  createRefund(input: { paymentId: string; userId: string; amount: number }, providerIdempotencyKey: string): Promise<ProviderResult>;
+  createRefund(input: { paymentId: string; userId: string; amount: string; currency: string }, providerIdempotencyKey: string): Promise<ProviderResult>;
   getRefund(providerRefundId: string): Promise<ProviderResult | null>;
 }
 
@@ -35,7 +35,7 @@ export function buildProviderIdempotencyKey(operation: string, scopeId: string, 
 export class InternalWalletProvider implements PaymentProvider {
   readonly name = 'internal_wallet';
 
-  async createPayment(_input: { orderId: string; userId: string; amount: number }, providerIdempotencyKey: string): Promise<ProviderResult> {
+  async createPayment(_input: { orderId: string; userId: string; amount: string; currency: string }, providerIdempotencyKey: string): Promise<ProviderResult> {
     return { outcome: 'SUCCEEDED', transactionId: deterministicId('internal-wallet-txn', providerIdempotencyKey) };
   }
 
@@ -49,13 +49,13 @@ export class InternalWalletProvider implements PaymentProvider {
     return payment ? this.mapStored(payment.providerOutcome, payment.providerTransactionId) : null;
   }
 
-  async createRefund(_input: { paymentId: string; userId: string; amount: number }, providerIdempotencyKey: string): Promise<ProviderResult> {
+  async createRefund(_input: { paymentId: string; userId: string; amount: string; currency: string }, providerIdempotencyKey: string): Promise<ProviderResult> {
     return { outcome: 'SUCCEEDED', transactionId: deterministicId('internal-wallet-refund', providerIdempotencyKey) };
   }
 
   async getRefund(providerRefundId: string): Promise<ProviderResult | null> {
     const refund = await prisma.refund.findUnique({ where: { providerRefundId } });
-    return refund ? this.mapStored(refund.providerOutcome, refund.providerRefundId) : null;
+    return refund?.providerRefundId ? this.mapStored(refund.providerOutcome, refund.providerRefundId) : null;
   }
 
   private mapStored(outcome: string, transactionId: string): ProviderResult {

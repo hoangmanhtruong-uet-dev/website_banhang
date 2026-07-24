@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { formatPrice } from '@/lib/utils';
+import { multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 import { useToastStore } from '@/components/ui/Toast';
 import Link from 'next/link';
 
 interface OrderItem {
   id: string;
   quantity: number;
-  price: number;
+  price: string;
   product: {
     id: string;
     name: string;
@@ -26,12 +27,13 @@ interface OrderDetail {
   shippingAddress: string;
   paymentMethod: string;
   paymentStatus: string;
-  shippingFee: number;
+  subtotal: string;
+  shippingFee: string;
   shippingProvider?: string | null;
   trackingNumber?: string | null;
   estimatedDelivery?: string | null;
   deliveredAt?: string | null;
-  total: number;
+  total: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -168,7 +170,7 @@ export default function AdminOrderDetailPage() {
                     </div>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--accent)' }}>
-                    {formatPrice(item.price * item.quantity)}
+                    {formatPrice(multiplyMoneyByQuantity(item.price, item.quantity))}
                   </div>
                 </div>
               ))}
@@ -178,7 +180,7 @@ export default function AdminOrderDetailPage() {
             <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>
                 <span>Tiền hàng:</span>
-                <span>{formatPrice(order.total - (order.shippingFee || 0))}</span>
+                <span>{formatPrice(order.subtotal)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>
                 <span>Phí vận chuyển:</span>

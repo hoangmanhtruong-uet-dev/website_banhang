@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
+import { multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, getTotal, clearCart } = useCartStore();
@@ -41,7 +42,7 @@ export default function CartPage() {
                 <button className="qty-btn" onClick={() => updateQuantity(item.product.id, item.quantity+1)}>+</button>
               </div>
               <p style={{ fontWeight:700, color:'var(--accent)', minWidth:'110px', textAlign:'right' }}>
-                {formatPrice(item.product.price * item.quantity)}
+                {formatPrice(multiplyMoneyByQuantity(item.product.price, item.quantity))}
               </p>
               <button onClick={() => removeItem(item.product.id)} style={{ background:'transparent', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:'18px' }}>✕</button>
             </div>

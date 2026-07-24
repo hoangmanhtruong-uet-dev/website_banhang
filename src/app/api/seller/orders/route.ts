@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { serializeMoneyFields } from '@/lib/utils/money';
 import prisma from '@/lib/db';
 import { getSession, canAccessSeller } from '@/lib/auth';
 
@@ -32,7 +33,7 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json(orders);
+    return NextResponse.json(serializeMoneyFields(orders));
   } catch (error) {
     console.error('[SELLER_ORDERS_GET]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });

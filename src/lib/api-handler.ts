@@ -3,8 +3,9 @@ import type { NextRequest } from 'next/server';
 import { ZodError } from 'zod';
 import { AppError } from './errors';
 import { logger } from './logger';
+import { serializeMoneyFields } from './utils/money';
 
-type Handler = (req: NextRequest, params?: unknown) => Promise<unknown>;
+type Handler<P> = (req: NextRequest, params?: P) => Promise<unknown>;
 
 interface MappedError {
   status: number;
@@ -13,13 +14,13 @@ interface MappedError {
   metadata?: unknown;
 }
 
-export function apiHandler(handler: Handler) {
-  return async (req: NextRequest, params?: unknown) => {
+export function apiHandler<P = unknown>(handler: Handler<P>) {
+  return async (req: NextRequest, params?: P) => {
     const requestId = crypto.randomUUID();
     try {
       const result = await handler(req, params);
       if (result instanceof NextResponse) return result;
-      return NextResponse.json(result);
+      return NextResponse.json(serializeMoneyFields(result));
     } catch (error: unknown) {
       const { status, code, message, metadata } = mapError(error);
       if (status >= 500) logger.error(`[API_ERROR] ${req.method} ${req.url}`, error, { requestId });

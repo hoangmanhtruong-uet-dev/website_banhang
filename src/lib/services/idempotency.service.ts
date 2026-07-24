@@ -2,6 +2,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import prisma from '@/lib/db';
 import { IdempotencyConflictError, IdempotencyStateError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { serializeMoneyFields } from '@/lib/utils/money';
 import { hashForLog, requestFingerprint } from '@/lib/idempotency';
 
 export type TransactionClient = Prisma.TransactionClient;
@@ -51,7 +52,7 @@ export class IdempotencyService {
   static async execute<T>(options: ExecuteOptions<T>): Promise<IdempotencyOutcome<T>> {
     if (options.signal?.aborted) throw options.signal.reason ?? new Error('Request aborted before idempotency claim');
     // Once the claim transaction starts it is intentionally non-cancellable: commit or rollback atomically.
-    const requestHash = requestFingerprint(options.request);
+    const requestHash = requestFingerprint(serializeMoneyFields(options.request));
     const keyHash = hashForLog(options.key);
     const startedAt = Date.now();
 
@@ -72,7 +73,7 @@ export class IdempotencyService {
           claimCreated = true;
 
           const response = await options.handler(tx);
-          const responseBody = JSON.stringify(response.body);
+          const responseBody = JSON.stringify(serializeMoneyFields(response.body));
           await tx.idempotencyRecord.update({
             where: { id: record.id },
             data: {

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { InventoryService } from '@/lib/services/inventory.service';
+import { serializeMoneyFields } from '@/lib/utils/money';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -15,7 +17,7 @@ export async function GET(_req: Request, { params }: Params) {
     const { id } = await params;
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { 
+      include: {
         orderItems: { include: { product: true } },
         shipper: { select: { name: true, phone: true, licensePlate: true } },
         user: { select: { name: true, email: true, phone: true } },
@@ -26,7 +28,7 @@ export async function GET(_req: Request, { params }: Params) {
       return NextResponse.json({ error: 'Đơn hàng không tồn tại' }, { status: 404 });
     }
 
-    return NextResponse.json(order);
+    return NextResponse.json(serializeMoneyFields(order));
   } catch (error) {
     console.error('[GET /api/orders/[id]]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
@@ -49,13 +51,15 @@ export async function PATCH(req: Request, { params }: Params) {
       return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 });
     }
 
-    const order = await prisma.order.update({
-      where: { id },
-      data: { status },
-      include: { orderItems: { include: { product: true } } },
-    });
+    if (status === 'cancelled') {
+      await InventoryService.cancel(id);
+      return NextResponse.json(serializeMoneyFields(await prisma.order.findUniqueOrThrow({ where: { id } })));
+    }
 
-    return NextResponse.json(order);
+    await InventoryService.transitionOrderStatus(id, status);
+    const order = await prisma.order.findUniqueOrThrow({ where: { id }, include: { orderItems: { include: { product: true } } } });
+
+    return NextResponse.json(serializeMoneyFields(order));
   } catch (error) {
     console.error('[PATCH /api/orders/[id]]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });

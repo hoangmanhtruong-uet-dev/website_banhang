@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
+import { multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 import { orderSchema } from '@/lib/validations';
 import { useToastStore } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
@@ -167,7 +168,7 @@ export default function CheckoutPage() {
 
       if (typeof window !== 'undefined') {
         if (!checkoutUserId) throw new Error('Không xác định được người dùng checkout');
-        const orderItems = items.map(item => ({ productId: item.product.id, quantity: item.quantity, price: item.product.price }));
+        const orderItems = items.map(item => ({ productId: item.product.id, quantity: item.quantity }));
         await getOrCreateCheckoutKey(window.sessionStorage, checkoutUserId, { ...formData, items: orderItems });
         window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
         window.sessionStorage.setItem(CHECKOUT_USER_STORAGE_KEY, checkoutUserId);
@@ -307,7 +308,7 @@ export default function CheckoutPage() {
             {items.map(item => (
               <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '14px' }}>
                 <span>{item.product.name} x {item.quantity}</span>
-                <span>{formatPrice(item.product.price * item.quantity)}</span>
+                <span>{formatPrice(multiplyMoneyByQuantity(item.product.price, item.quantity))}</span>
               </div>
             ))}
           </div>

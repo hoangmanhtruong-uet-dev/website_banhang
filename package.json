@@ -14,7 +14,17 @@
     "db:reset": "prisma migrate reset --force && tsx prisma/seed.ts",
     "idempotency:cleanup": "tsx scripts/cleanup-idempotency.ts",
     "typecheck": "tsc --noEmit",
-    "test:idempotency:integration": "node scripts/run-idempotency-integration.mjs"
+    "test:idempotency:integration": "node scripts/run-idempotency-integration.mjs",
+    "test:integration": "node scripts/run-idempotency-integration.mjs",
+    "inventory:expire": "tsx scripts/inventory-jobs.ts expire",
+    "inventory:reconcile": "tsx scripts/inventory-jobs.ts reconcile",
+    "inventory:repair": "tsx scripts/inventory-jobs.ts repair",
+    "outbox:worker": "tsx scripts/outbox-worker.ts worker",
+    "outbox:dispatch-once": "tsx scripts/outbox-worker.ts once",
+    "outbox:reconcile": "tsx scripts/outbox-reconcile.ts",
+    "outbox:repair": "tsx scripts/outbox-reconcile.ts --repair",
+    "money:audit": "tsx scripts/money-audit.ts",
+    "money:static": "node scripts/money-static.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
