@@ -5,6 +5,7 @@ import { productSchema } from '@/lib/validations';
 import { getSession } from '@/lib/auth';
 import { generateNextProductId } from '@/lib/idGenerator';
 import { serializeMoneyFields } from '@/lib/utils/money';
+import { getCategoryProductImage } from '@/lib/product-image';
 
 export async function GET(req: Request) {
   try {
@@ -20,7 +21,12 @@ export async function GET(req: Request) {
     const sortField = validSortFields.has(sortBy) ? sortBy : 'createdAt';
     const orderBy = { [sortField]: direction } as Prisma.ProductOrderByWithRelationInput;
     const products = await prisma.product.findMany({ where, orderBy, include: { categoryRef: true, images: true }, take: 20 });
-    return NextResponse.json(serializeMoneyFields(products));
+    const normalizedProducts = products.map(product => ({
+      ...product,
+      category: product.categoryRef?.name ?? '',
+      image: product.image || product.images[0]?.url || getCategoryProductImage(product.categoryRef?.name),
+    }));
+    return NextResponse.json(serializeMoneyFields(normalizedProducts));
   } catch (error) {
     console.error('[GET /api/products]', error);
     return NextResponse.json({ error: 'Lỗi khi lấy danh sách sản phẩm' }, { status: 500 });

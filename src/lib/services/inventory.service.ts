@@ -4,6 +4,7 @@ import { ConflictError, ValidationError } from '@/lib/errors';
 import type { TransactionClient } from '@/lib/services/idempotency.service';
 import { logger } from '@/lib/logger';
 import { enqueueOutboxEvent, OUTBOX_EVENT } from '@/lib/services/outbox.service';
+import { ORDER_STATUS, transitionOrderInTransaction, type OrderTransitionActor } from '@/lib/services/order-state.service';
 
 export const inventoryConfig = Object.freeze({
   reservationTtlMinutes: positiveInt(process.env.INVENTORY_RESERVATION_TTL_MINUTES, 15, 24 * 60),
@@ -18,21 +19,6 @@ export const inventoryConfig = Object.freeze({
 function positiveInt(value: string | undefined, fallback: number, maximum: number): number {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback;
-}
-
-const orderTransitions: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  pending: ['processing', 'cancelled', 'expired', 'payment_review'],
-  expired: ['payment_review'],
-  cancelled: ['payment_review'],
-  payment_review: ['refund_required'],
-  refund_required: ['refunded'],
-  processing: ['shipped', 'cancelled'],
-  shipped: ['delivered'],
-});
-
-export function assertOrderTransition(from: string, to: string): void {
-  if (from === to) return;
-  if (!orderTransitions[from]?.includes(to)) throw new ConflictError(`Invalid order transition: ${from} -> ${to}`);
 }
 
 async function lockOrder(tx: TransactionClient, orderId: string): Promise<void> {
@@ -110,7 +96,7 @@ export class InventoryService {
     });
   }
 
-  static async consumeForPayment(tx: TransactionClient, orderId: string, paymentId?: string): Promise<'consumed' | 'duplicate' | 'late'> {
+  static async consumeForPayment(tx: TransactionClient, orderId: string, paymentId?: string, actor: OrderTransitionActor = { type: 'SYSTEM', workerId: 'internal-payment' }): Promise<'consumed' | 'duplicate' | 'late'> {
     await lockOrder(tx, orderId);
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
     const reservations = await lockedReservations(tx, orderId);
@@ -118,8 +104,7 @@ export class InventoryService {
     if (active.length === 0) {
       if (reservations.length > 0 && reservations.every((entry) => entry.status === InventoryReservationStatus.CONSUMED)) return 'duplicate';
       if (!['payment_review', 'refund_required', 'refunded'].includes(order.status)) {
-        assertOrderTransition(order.status, 'payment_review');
-        await tx.order.update({ where: { id: orderId }, data: { status: 'payment_review', paymentStatus: 'paid_late' } });
+        await transitionOrderInTransaction(tx, { orderId, targetStatus: ORDER_STATUS.PAYMENT_REVIEW, actor, reason: 'Payment succeeded after reservation ended', idempotencyKey: `order:${orderId}:late-payment:${paymentId ?? 'unrecorded'}` });
       }
       await enqueueOutboxEvent(tx, {
         eventType: OUTBOX_EVENT.LATE_PAYMENT_REVIEW_REQUIRED, aggregateType: 'Order', aggregateId: orderId, orderId,
@@ -142,8 +127,7 @@ export class InventoryService {
       await tx.inventoryReservation.update({ where: { id: entry.id }, data: { status: InventoryReservationStatus.CONSUMED, consumedAt: now } });
     }
     if (order.status === 'pending') {
-      assertOrderTransition(order.status, 'processing');
-      await tx.order.update({ where: { id: orderId }, data: { status: 'processing', paymentStatus: 'paid' } });
+      await transitionOrderInTransaction(tx, { orderId, targetStatus: ORDER_STATUS.PAID, actor, reason: 'Payment succeeded and inventory consumed', idempotencyKey: `order:${orderId}:paid:${paymentId ?? 'internal'}` });
     }
     await enqueueOutboxEvent(tx, {
       eventType: OUTBOX_EVENT.INVENTORY_CONSUMED, aggregateType: 'Order', aggregateId: orderId, orderId,
@@ -152,9 +136,60 @@ export class InventoryService {
     return 'consumed';
   }
 
-  static async releaseOrder(tx: TransactionClient, orderId: string, target: 'RELEASED' | 'EXPIRED'): Promise<number> {
+  static async consumeForCodFulfillment(tx: TransactionClient, fulfillmentId: string): Promise<'consumed' | 'duplicate'> {
+    const fulfillment = await tx.sellerFulfillment.findUnique({
+      where: { id: fulfillmentId },
+      include: { order: { select: { id: true, paymentMethod: true } } },
+    });
+    if (!fulfillment) throw new ValidationError('Fulfillment not found');
+    if (fulfillment.order.paymentMethod !== 'COD') throw new ValidationError('COD inventory consumption requires a COD order');
+    await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT r.id FROM inventory_reservation r
+      JOIN orderitem oi ON oi.id = r.orderItemId
+      WHERE oi.fulfillmentId = ${fulfillmentId}
+      ORDER BY r.productId, r.id FOR UPDATE`);
+    const reservations = await tx.inventoryReservation.findMany({
+      where: { orderItem: { fulfillmentId } },
+      orderBy: [{ productId: 'asc' }, { id: 'asc' }],
+    });
+    if (reservations.length === 0) throw new ConflictError('Fulfillment has no inventory reservations');
+    const active = reservations.filter((entry) => entry.status === InventoryReservationStatus.ACTIVE);
+    if (active.length === 0 && reservations.every((entry) => entry.status === InventoryReservationStatus.CONSUMED)) return 'duplicate';
+    if (active.length !== reservations.length) throw new ConflictError('Fulfillment has unavailable inventory reservations');
+    const now = new Date();
+    for (const entry of active) {
+      const changed = await tx.product.updateMany({
+        where: { id: entry.productId, stockQuantity: { gte: entry.quantity }, reservedQuantity: { gte: entry.quantity } },
+        data: { stockQuantity: { decrement: entry.quantity }, reservedQuantity: { decrement: entry.quantity } },
+      });
+      if (changed.count !== 1) throw new ConflictError('Inventory invariant violation while consuming COD fulfillment');
+      await tx.product.updateMany({ where: { id: entry.productId, stockQuantity: 0 }, data: { inStock: false } });
+      await tx.inventoryReservation.update({ where: { id: entry.id }, data: { status: InventoryReservationStatus.CONSUMED, consumedAt: now } });
+    }
+    await enqueueOutboxEvent(tx, {
+      eventType: OUTBOX_EVENT.INVENTORY_CONSUMED,
+      aggregateType: 'SellerFulfillment', aggregateId: fulfillmentId, orderId: fulfillment.order.id,
+      idempotencyKey: `inventory:${OUTBOX_EVENT.INVENTORY_CONSUMED}:${fulfillment.order.id}:${fulfillmentId}`,
+      payload: { orderId: fulfillment.order.id },
+    });
+    return 'consumed';
+  }
+
+  static async releaseOrder(
+    tx: TransactionClient,
+    orderId: string,
+    target: 'RELEASED' | 'EXPIRED',
+    actor: OrderTransitionActor = { type: 'SYSTEM', workerId: 'inventory-worker' },
+    idempotencyKey = `order:${orderId}:${target.toLowerCase()}`,
+  ): Promise<number> {
     await lockOrder(tx, orderId);
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+    if (target === 'RELEASED' && order.status !== 'pending') {
+      if (order.status === 'cancelled') return 0;
+      const error = new ConflictError(`Invalid order transition: ${order.status} -> cancelled`);
+      error.code = 'INVALID_ORDER_TRANSITION';
+      throw error;
+    }
     const reservations = await lockedReservations(tx, orderId);
     const active = reservations.filter((entry) => entry.status === InventoryReservationStatus.ACTIVE);
     const now = new Date();
@@ -169,30 +204,27 @@ export class InventoryService {
         data: { status: target, releasedAt: now },
       });
     }
-    if (active.length > 0 && order.status === 'pending') {
+    if (order.status === 'pending') {
       const next = target === 'EXPIRED' ? 'expired' : 'cancelled';
-      assertOrderTransition(order.status, next);
-      await tx.order.update({ where: { id: orderId }, data: { status: next } });
-      const eventType = target === 'EXPIRED' ? OUTBOX_EVENT.INVENTORY_RESERVATION_EXPIRED : OUTBOX_EVENT.ORDER_CANCELLED;
-      await enqueueOutboxEvent(tx, {
-        eventType, aggregateType: 'Order', aggregateId: orderId, orderId,
-        idempotencyKey: `inventory:${eventType}:${orderId}:${orderId}`, payload: { orderId },
-      });
+      await transitionOrderInTransaction(tx, { orderId, targetStatus: next === 'expired' ? ORDER_STATUS.EXPIRED : ORDER_STATUS.CANCELLED, actor, reason: target === 'EXPIRED' ? 'Inventory reservation expired' : 'Order cancelled before payment', idempotencyKey });
+      if (target === 'EXPIRED') {
+        await enqueueOutboxEvent(tx, {
+          eventType: OUTBOX_EVENT.INVENTORY_RESERVATION_EXPIRED,
+          aggregateType: 'Order', aggregateId: orderId, orderId,
+          idempotencyKey: `inventory:${OUTBOX_EVENT.INVENTORY_RESERVATION_EXPIRED}:${orderId}:${orderId}`,
+          payload: { orderId },
+        });
+      }
     }
     return active.length;
   }
 
-  static async cancel(orderId: string): Promise<number> {
-    return transactionWithRetry((tx) => this.releaseOrder(tx, orderId, 'RELEASED'));
-  }
-
-  static async transitionOrderStatus(orderId: string, target: string, trackingNumber?: string) {
-    return transactionWithRetry(async (tx) => {
-      await lockOrder(tx, orderId);
-      const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
-      assertOrderTransition(order.status, target);
-      return tx.order.update({ where: { id: orderId }, data: { status: target, ...(trackingNumber ? { trackingNumber } : {}) } });
-    });
+  static async cancel(
+    orderId: string,
+    actor: OrderTransitionActor = { type: 'SYSTEM', workerId: 'inventory-service' },
+    idempotencyKey = `order:${orderId}:cancel`,
+  ): Promise<number> {
+    return transactionWithRetry((tx) => this.releaseOrder(tx, orderId, 'RELEASED', actor, idempotencyKey));
   }
 }
 
@@ -209,7 +241,7 @@ export class InventoryExpiryWorker {
         const due = await tx.inventoryReservation.count({
           where: { orderId: candidate.orderId, status: InventoryReservationStatus.ACTIVE, expiresAt: { lte: now } },
         });
-        return due > 0 ? InventoryService.releaseOrder(tx, candidate.orderId, 'EXPIRED') : 0;
+        return due > 0 ? InventoryService.releaseOrder(tx, candidate.orderId, 'EXPIRED', { type: 'SYSTEM', workerId: 'inventory-expiry' }, `order:${candidate.orderId}:expired`) : 0;
       });
     }
     return released;

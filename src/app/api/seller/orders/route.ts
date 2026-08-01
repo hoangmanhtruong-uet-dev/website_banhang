@@ -10,30 +10,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Tìm các OrderItem chứa sản phẩm của Seller này
-    const orders = await prisma.order.findMany({
-      where: {
-        orderItems: {
-          some: {
-            product: {
-              sellerId: session.userId
-            }
-          }
-        }
-      },
+    const fulfillments = await prisma.sellerFulfillment.findMany({
+      where: { sellerId: session.userId },
       include: {
-        user: { select: { name: true, email: true } },
-        orderItems: {
-          where: {
-            product: { sellerId: session.userId }
-          },
-          include: { product: true }
-        }
+        order: { select: {
+          id: true, customerName: true, customerPhone: true, shippingAddress: true,
+          paymentMethod: true, paymentStatus: true, createdAt: true,
+        } },
+        orderItems: { include: { product: { select: { id: true, name: true, image: true, emoji: true } } } },
+        shipper: { select: { id: true, name: true, phone: true } },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(serializeMoneyFields(orders));
+    return NextResponse.json(serializeMoneyFields(fulfillments));
   } catch (error) {
     console.error('[SELLER_ORDERS_GET]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });

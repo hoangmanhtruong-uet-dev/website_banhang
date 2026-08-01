@@ -16,6 +16,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('from');
+  const registerHref = redirectTo ? '/register?from=' + encodeURIComponent(redirectTo) : '/register';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +127,7 @@ export default function LoginPage() {
           <div style={{ marginBottom:'28px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
               <label className="input-label" style={{ margin:0, fontSize:'13px', fontWeight:600 }}>Mật khẩu</label>
-              <a href="#" style={{ fontSize:'12px', color:'var(--accent)' }}>Quên mật khẩu?</a>
+              <Link href="/forgot-password" style={{ fontSize:'12px', color:'var(--accent)' }}>Quên mật khẩu?</Link>
             </div>
             <input 
               className="input-field" type="password" placeholder="••••••••" 
@@ -151,7 +152,7 @@ export default function LoginPage() {
 
           {activeTab === 'user' && (
             <p style={{ textAlign:'center', marginTop:'24px', fontSize:'14px', color:'var(--text-muted)' }}>
-              Chưa có tài khoản? <Link href="/register" style={{ color:'var(--accent)', fontWeight:700 }}>Tham gia ngay</Link>
+              Chưa có tài khoản? <Link href={registerHref} style={{ color:'var(--accent)', fontWeight:700 }}>Tham gia ngay</Link>
             </p>
           )}
         </form>

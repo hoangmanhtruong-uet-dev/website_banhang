@@ -44,7 +44,6 @@ export default function CheckoutPage() {
   const [hydrated, setHydrated] = useState(false);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-  const [codOtp, setCodOtp] = useState('');
   const [formData, setFormData] = useState<CheckoutForm>({
     customerName: '',
     customerEmail: '',
@@ -133,11 +132,7 @@ export default function CheckoutPage() {
       orderSchema.parse(formData);
 
       if (formData.paymentMethod === 'COD') {
-        if (!codOtp || codOtp.length < 4) {
-          addToast('Vui lòng nhập mã xác nhận đơn hàng.');
-          setLoading(false);
-          return;
-        }
+
         const orderItems = items.map(item => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -277,24 +272,13 @@ export default function CheckoutPage() {
               </button>
             ))}
           </div>
-
           {formData.paymentMethod === 'COD' ? (
-            <div style={{ marginBottom: '24px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-              <label className="input-label">Mã xác nhận (Xác thực COD)</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                  className="input-field" 
-                  placeholder="Nhập 4 số bất kỳ để xác thực" 
-                  value={codOtp} 
-                  onChange={e => setCodOtp(e.target.value.replace(/\D/g, ''))}
-                  maxLength={4}
-                />
-                <button type="button" className="btn-secondary" onClick={() => addToast('Mã xác thực đã được gửi đến SĐT của bạn (Giả lập)')} style={{ whiteSpace: 'nowrap', fontSize: '12px' }}>Gửi lại mã</button>
-              </div>
-            </div>
+            <p style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
+              Bạn sẽ thanh toán khi nhận hàng. Đơn được tạo ngay sau khi xác nhận.
+            </p>
           ) : (
             <p style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
-              Bạn sẽ được chuyển đến trang thanh toán {formData.paymentMethod} để xác thực mã PIN và kiểm tra tài khoản.
+              Bạn sẽ sang trang {formData.paymentMethod} demo để nhập PIN và trừ số dư nội bộ.
             </p>
           )}
           <button type="submit" disabled={loading} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '16px' }}>

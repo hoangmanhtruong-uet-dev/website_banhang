@@ -45,34 +45,38 @@ export class OrderService {
     const products = await tx.product.findMany({ where: { id: { in: mergedItems.map((item) => item.productId) } } });
     if (products.length !== mergedItems.length) throw new ValidationError('Có sản phẩm không tồn tại');
 
-    const orderItemsData: Array<{ productId: string; quantity: number; price: Prisma.Decimal; lineTotal: Prisma.Decimal; currency: string }> = [];
+    const orderItemsData: Array<{ productId: string; sellerId: string | null; quantity: number; price: Prisma.Decimal; lineTotal: Prisma.Decimal; currency: string }> = [];
     for (const item of mergedItems) {
       const product = products.find((candidate) => candidate.id === item.productId);
       if (!product) throw new NotFoundError(`Sản phẩm ${item.productId} không tồn tại`);
       assertSameCurrency(product.currency, DEFAULT_CURRENCY);
       const lineTotal = Money.round(Money.multiply(product.price, item.quantity));
-      orderItemsData.push({ productId: product.id, quantity: item.quantity, price: product.price, lineTotal, currency: product.currency });
+      orderItemsData.push({ productId: product.id, sellerId: product.sellerId, quantity: item.quantity, price: product.price, lineTotal, currency: product.currency });
     }
     const subtotal = Money.round(Money.sum(orderItemsData.map((item) => item.lineTotal)));
 
     let discount = new Prisma.Decimal(0);
+    let voucherSellerId: string | null = null;
     if (voucherCode) {
       const voucher = await tx.voucher.findUnique({ where: { code: voucherCode } });
       if (!voucher) throw new ValidationError('Mã giảm giá không tồn tại');
       assertSameCurrency(voucher.currency, DEFAULT_CURRENCY);
       const now = new Date();
       if (now < voucher.startDate || now > voucher.endDate) throw new ValidationError('Mã giảm giá đã hết hạn hoặc chưa bắt đầu');
-      if (Money.compare(subtotal, voucher.minOrderValue) < 0) throw new ValidationError(`Đơn hàng tối thiểu ${Money.serialize(voucher.minOrderValue)} VND`);
+      const eligibleSubtotal = Money.round(Money.sum(orderItemsData.filter((item) => item.sellerId === voucher.sellerId).map((item) => item.lineTotal)));
+      if (!Money.isPositive(eligibleSubtotal)) throw new ValidationError('Mã giảm giá không áp dụng cho sản phẩm trong giỏ hàng');
+      if (Money.compare(eligibleSubtotal, voucher.minOrderValue) < 0) throw new ValidationError(`Sản phẩm của shop áp dụng voucher phải đạt tối thiểu ${Money.serialize(voucher.minOrderValue)} VND`);
       const voucherUpdate = await tx.voucher.updateMany({
         where: { id: voucher.id, usedCount: { lt: voucher.usageLimit } },
         data: { usedCount: { increment: 1 } },
       });
       if (voucherUpdate.count !== 1) throw new ConflictError('Mã giảm giá đã hết lượt sử dụng');
       discount = voucher.discountType === 'percentage'
-        ? Money.divide(Money.multiply(subtotal, voucher.discountValue), '100')
+        ? Money.divide(Money.multiply(eligibleSubtotal, voucher.discountValue), '100')
         : voucher.discountValue;
       if (voucher.maxDiscount) discount = Money.min(discount, voucher.maxDiscount);
-      discount = Money.round(Money.min(discount, subtotal));
+      discount = Money.round(Money.min(discount, eligibleSubtotal));
+      voucherSellerId = voucher.sellerId;
     }
 
     const shippingFee = new Prisma.Decimal(0);
@@ -100,10 +104,28 @@ export class OrderService {
         shippingAddress: input.shippingAddress, paymentMethod, paymentStatus: 'pending', subtotal,
         discountAmount: discount, shippingFee, taxAmount, total, currency: DEFAULT_CURRENCY,
         status: 'pending', userId, idempotencyScope: userId, idempotencyKey: input.idempotencyKey,
-        orderItems: { create: orderItemsData },
+        orderItems: { create: orderItemsData.map(({ sellerId: _sellerId, ...item }) => item) },
       },
       include: { orderItems: { include: { product: true } } },
     });
+
+    const fulfillmentGroups = new Map<string, { sellerId: string | null; subtotal: Prisma.Decimal; productIds: string[] }>();
+    for (const item of orderItemsData) {
+      const sellerScope = item.sellerId ?? 'platform';
+      const group = fulfillmentGroups.get(sellerScope) ?? { sellerId: item.sellerId, subtotal: new Prisma.Decimal(0), productIds: [] };
+      group.subtotal = Money.round(Money.add(group.subtotal, item.lineTotal));
+      group.productIds.push(item.productId);
+      fulfillmentGroups.set(sellerScope, group);
+    }
+    for (const [sellerScope, group] of fulfillmentGroups) {
+      const groupDiscount = group.sellerId === voucherSellerId ? discount : new Prisma.Decimal(0);
+      const fulfillment = await tx.sellerFulfillment.create({ data: {
+        orderId: createdOrder.id, sellerId: group.sellerId, sellerScope, status: paymentMethod === 'COD' ? 'paid' : 'pending',
+        subtotal: group.subtotal, discountAmount: groupDiscount, shippingFee: 0, taxAmount: 0,
+        total: Money.round(Money.subtract(group.subtotal, groupDiscount)), currency: DEFAULT_CURRENCY,
+      } });
+      await tx.orderItem.updateMany({ where: { orderId: createdOrder.id, productId: { in: group.productIds } }, data: { fulfillmentId: fulfillment.id } });
+    }
     await InventoryService.reserveOrderItems(tx, createdOrder.id, createdOrder.orderItems.map((item) => ({ id: item.id, productId: item.productId, quantity: item.quantity })));
     await testHooks?.afterInventoryUpdate?.();
     await testHooks?.afterOrderCreation?.();
@@ -123,20 +145,18 @@ export class OrderService {
       } });
       await InventoryService.consumeForPayment(tx, createdOrder.id);
     }
-    const resultOrder = needsDeduction
-      ? await tx.order.findUniqueOrThrow({ where: { id: createdOrder.id }, include: { orderItems: { include: { product: true } } } })
-      : createdOrder;
+    const resultOrder = await tx.order.findUniqueOrThrow({ where: { id: createdOrder.id }, include: { orderItems: { include: { product: true } }, fulfillments: true } });
     const { idempotencyKey: _idempotencyKey, idempotencyScope: _idempotencyScope, ...safeOrder } = resultOrder;
     return safeOrder;
   }
 
   static async getOrders(userId?: string, role?: string) {
     if (!userId) throw new ValidationError('Thiếu người dùng');
-    return prisma.order.findMany({ where: role === 'admin' ? {} : { userId }, include: { orderItems: { include: { product: true } } }, orderBy: { createdAt: 'desc' } });
+    return prisma.order.findMany({ where: role === 'admin' ? {} : { userId }, include: { orderItems: { include: { product: true } }, fulfillments: { include: { seller: { select: { id: true, name: true } }, shipper: { select: { id: true, name: true } } } } }, orderBy: { createdAt: 'desc' } });
   }
 
   static async getOrderById(orderId: string, userId: string, role?: string) {
-    const order = await prisma.order.findFirst({ where: role === 'admin' ? { id: orderId } : { id: orderId, userId }, include: { orderItems: { include: { product: true } } } });
+    const order = await prisma.order.findFirst({ where: role === 'admin' ? { id: orderId } : { id: orderId, userId }, include: { orderItems: { include: { product: true } }, fulfillments: { include: { seller: { select: { id: true, name: true } }, shipper: { select: { id: true, name: true } } } } } });
     if (!order) throw new NotFoundError('Không tìm thấy đơn hàng');
     return order;
   }

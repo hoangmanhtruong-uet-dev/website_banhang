@@ -15,6 +15,8 @@ async function clean() {
   await prisma.inventoryReservation.deleteMany();
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
+  await prisma.orderReturn.deleteMany();
+  await prisma.orderStatusTransition.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.voucher.deleteMany();
@@ -64,7 +66,7 @@ test('server snapshots Decimal prices and ignores client totals', async () => {
   });
   assert.equal(Money.serialize(order.subtotal), '71.5058');
   assert.equal(Money.serialize(order.total), '71.5058');
-  assert.deepEqual(order.orderItems.map((item) => Money.serialize(item.lineTotal)), ['30.3702', '41.1356']);
+  assert.deepEqual(order.orderItems.map((item) => Money.serialize(item.lineTotal)).sort(), ['30.3702', '41.1356'].sort());
   assert.equal(order.currency, 'VND');
 });
 

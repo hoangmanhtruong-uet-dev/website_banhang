@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_CURRENCY, normalizeCurrency, parseMoneyInput } from '@/lib/utils/money';
+import { DEFAULT_CURRENCY, Money, normalizeCurrency, parseMoneyInput } from '@/lib/utils/money';
 
 export const moneyInputSchema = (options: { allowZero?: boolean; field?: string } = {}) => z.unknown().transform((value, ctx) => {
   try {
@@ -19,7 +19,7 @@ export const currencySchema = z.unknown().optional().transform((value, ctx) => {
   }
 });
 
-export const productSchema = z.object({
+export const productBaseSchema = z.object({
   name: z.string().min(2, 'Tên sản phẩm phải có ít nhất 2 ký tự'),
   price: moneyInputSchema({ allowZero: false, field: 'price' }),
   originalPrice: moneyInputSchema({ field: 'originalPrice' }).nullable().optional(),
@@ -27,6 +27,12 @@ export const productSchema = z.object({
   description: z.string().min(10, 'Mô tả phải có ít nhất 10 ký tự'),
   categoryId: z.string().min(1, 'Vui lòng chọn danh mục'),
   image: z.string().optional().nullable(),
+});
+
+export const productSchema = productBaseSchema.superRefine((data, ctx) => {
+  if (data.originalPrice && Money.compare(data.originalPrice, data.price) <= 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Giá gốc phải lớn hơn giá bán', path: ['originalPrice'] });
+  }
 });
 
 const orderBaseSchema = z.object({
@@ -40,7 +46,20 @@ const orderBaseSchema = z.object({
 export const orderSchema = orderBaseSchema;
 export const orderRequestSchema = orderBaseSchema.extend({
   voucherCode: z.string().trim().min(1).max(191).optional(),
+  paymentPin: z.string().regex(/^\d{6}$/, 'Mã PIN phải gồm đúng 6 chữ số').optional(),
+  bankId: z.string().min(1).optional(),
+  paymentPhone: z.string().regex(/^0\d{9}$/, 'Số điện thoại MoMo không hợp lệ').optional(),
   items: z.array(z.object({ productId: z.string().min(1), quantity: z.number().int().positive() })).min(1),
+}).superRefine((data, ctx) => {
+  if (data.paymentMethod === 'Banking' && !data.bankId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng chọn tài khoản ngân hàng', path: ['bankId'] });
+  }
+  if (data.paymentMethod === 'MoMo' && !data.paymentPhone) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng nhập số điện thoại MoMo', path: ['paymentPhone'] });
+  }
+  if (data.paymentMethod !== 'COD' && !data.paymentPin) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng nhập mã PIN giao dịch', path: ['paymentPin'] });
+  }
 });
 export const paymentRequestSchema = z.object({ orderId: z.string().min(1) });
 export const refundRequestSchema = z.object({

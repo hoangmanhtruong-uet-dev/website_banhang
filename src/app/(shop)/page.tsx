@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
 import { formatPrice } from '@/lib/utils';
 import { Product } from '@/types/product';
+import { getProductImage } from '@/lib/product-image';
 
 const categoryIcons: Record<string, string> = {
   'Thời trang': '👗', 'Công nghệ': '💻', 'Làm đẹp': '💄', 'Gia dụng': '🏠',
@@ -71,7 +72,7 @@ export default function Home() {
               <div className="hero-showcase-card">
                 <div className="hero-showcase-badge">Best seller</div>
                 <div className="hero-showcase-preview">
-                  <span className="hero-showcase-emoji">{featuredProducts[0]?.emoji}</span>
+                  <img className="hero-showcase-image" src={getProductImage(featuredProducts[0])} alt={featuredProducts[0].name} />
                   <div>
                     <p>{featuredProducts[0]?.name}</p>
                     <strong>{formatPrice(featuredProducts[0]?.price ?? 0)}</strong>
@@ -87,7 +88,7 @@ export default function Home() {
                   <strong>{featuredProducts[1]?.badge}</strong>
                 </div>
                 <div className="hero-showcase-preview">
-                  <span className="hero-showcase-emoji">{featuredProducts[1]?.emoji}</span>
+                  <img className="hero-showcase-image" src={getProductImage(featuredProducts[1])} alt={featuredProducts[1].name} />
                   <div>
                     <p>{featuredProducts[1]?.name}</p>
                     <strong>{formatPrice(featuredProducts[1]?.price ?? 0)}</strong>

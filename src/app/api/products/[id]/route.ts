@@ -2,17 +2,22 @@ import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
-import { productSchema } from '@/lib/validations';
-import { serializeMoneyFields } from '@/lib/utils/money';
+import { productBaseSchema } from '@/lib/validations';
+import { Money, serializeMoneyFields } from '@/lib/utils/money';
+import { getCategoryProductImage } from '@/lib/product-image';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
   try {
     const { id } = await params;
-    const product = await prisma.product.findUnique({ where: { id }, include: { images: true } });
+    const product = await prisma.product.findUnique({ where: { id }, include: { images: true, categoryRef: true } });
     if (!product) return NextResponse.json({ error: 'Sản phẩm không tồn tại' }, { status: 404 });
-    return NextResponse.json(serializeMoneyFields(product));
+    return NextResponse.json(serializeMoneyFields({
+      ...product,
+      category: product.categoryRef?.name ?? '',
+      image: product.image || product.images[0]?.url || getCategoryProductImage(product.categoryRef?.name),
+    }));
   } catch (error) {
     console.error('[GET /api/products/[id]]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
@@ -29,9 +34,14 @@ export async function PUT(req: Request, { params }: Params) {
     if (session.role !== 'admin' && existingProduct.sellerId !== session.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
     const raw = await req.json() as Record<string, unknown>;
-    const parsed = productSchema.partial().safeParse(raw);
+    const parsed = productBaseSchema.partial().safeParse(raw);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
     const input = parsed.data;
+    const nextPrice = input.price ?? existingProduct.price;
+    const nextOriginalPrice = input.originalPrice !== undefined ? input.originalPrice : existingProduct.originalPrice;
+    if (nextOriginalPrice && Money.compare(nextOriginalPrice, nextPrice) <= 0) {
+      return NextResponse.json({ error: 'Giá gốc phải lớn hơn giá bán' }, { status: 400 });
+    }
     const updateData: Prisma.ProductUpdateInput = {
       ...(input.name !== undefined ? { name: input.name } : {}),
       ...(input.price !== undefined ? { price: input.price } : {}),

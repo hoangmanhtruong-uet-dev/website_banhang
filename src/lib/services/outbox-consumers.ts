@@ -2,6 +2,7 @@ import { Prisma, type OutboxEvent, type PrismaClient } from '@prisma/client';
 import prisma from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { Money } from '@/lib/utils/money';
+import { ORDER_STATUS, transitionOrderInTransaction } from '@/lib/services/order-state.service';
 import type { NotificationProvider } from '@/lib/services/notification-provider';
 import { LogNotificationProvider } from '@/lib/services/notification-provider';
 import {
@@ -95,7 +96,7 @@ async function processRefund(client: PrismaClient, event: OutboxEvent, payload: 
       data: { refundedAmount: nextRefunded, status: fullyRefunded ? 'REFUNDED' : 'PARTIALLY_REFUNDED' },
     });
     if (fullyRefunded) {
-      await tx.order.update({ where: { id: payment.orderId }, data: { status: 'refunded', paymentStatus: 'refunded' } });
+      await transitionOrderInTransaction(tx, { orderId: payment.orderId, targetStatus: ORDER_STATUS.REFUNDED, actor: { type: 'SYSTEM', workerId: consumerName }, reason: 'Refund consumer completed full refund', idempotencyKey: `order:${payment.orderId}:refunded:${refund.id}` });
     }
     await tx.processedOutboxEvent.create({
       data: { consumerName, eventId: event.id, resultHash: resultHash({ refundId: refund.id, amount: Money.serialize(refund.amount), currency: refund.currency }) },
@@ -176,7 +177,16 @@ export class OutboxConsumerRegistry {
       noop(OUTBOX_EVENT.INVENTORY_RESERVED, 'inventory-reserved-observer-v1'),
       noop(OUTBOX_EVENT.INVENTORY_CONSUMED, 'order-paid-observer-v1'),
       noop(OUTBOX_EVENT.INVENTORY_RESERVATION_EXPIRED, 'inventory-expired-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_PAID, 'order-paid-transition-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_CONFIRMED, 'order-confirmed-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_PACKING_STARTED, 'order-packing-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_SHIPPED, 'order-shipped-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_DELIVERED, 'order-delivered-observer-v1'),
       noop(OUTBOX_EVENT.ORDER_CANCELLED, 'order-cancelled-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_RETURN_REQUESTED, 'order-return-requested-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_RETURNED, 'order-returned-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_REFUNDED, 'order-refunded-observer-v1'),
+      noop(OUTBOX_EVENT.ORDER_REFUND_PENDING, 'order-refund-pending-observer-v1'),
       noop(OUTBOX_EVENT.LATE_PAYMENT_REVIEW_REQUIRED, 'late-payment-review-v1'),
       { eventType: OUTBOX_EVENT.REFUND_REQUIRED, consumerName: 'internal-wallet-refund-v1', handle: (event) => processRefund(client, event, parseOutboxPayload(event)) },
       { eventType: OUTBOX_EVENT.NOTIFICATION_REQUESTED, consumerName: 'notification-delivery-v1', handle: (event) => processNotification(client, provider, event, parseOutboxPayload(event)) },

@@ -1,52 +1,40 @@
-import { NextResponse } from 'next/server';
-import { serializeMoneyFields } from '@/lib/utils/money';
-import prisma from '@/lib/db';
-import { getSession, canAccessShipper } from '@/lib/auth';
+import { type NextRequest } from 'next/server';
+import { z } from 'zod';
+import { getSession } from '@/lib/auth';
+import { createHandler } from '@/lib/api-handler';
+import { AuthorizationError, ValidationError } from '@/lib/errors';
+import { FulfillmentService } from '@/lib/services/fulfillment.service';
 
-// PATCH: Cập nhật trạng thái, ngày nhận, tracking, và gán shipper
-export async function PATCH(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
+const bodySchema = z.object({
+  status: z.enum(['SHIPPING', 'DELIVERED']),
+  trackingNumber: z.string().trim().min(1).max(191).optional(),
+  shippingProvider: z.string().trim().min(1).max(191).optional(),
+  estimatedDelivery: z.string().datetime().optional(),
+  assignSelf: z.boolean().optional(),
+  reason: z.string().trim().max(500).optional(),
+}).strict();
+
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return createHandler(async (request: NextRequest) => {
     const session = await getSession();
-    if (!session || !canAccessShipper(session)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-    const params = await context.params;
-
-    const body = await req.json();
-    const { status, estimatedDelivery, trackingNumber, shippingProvider, assignSelf } = body as {
-      status?: string;
-      estimatedDelivery?: string;
-      trackingNumber?: string;
-      shippingProvider?: string;
-      assignSelf?: boolean;
-    };
-
-    const updateData: Record<string, unknown> = {};
-    if (status) updateData.status = status.toLowerCase();
-    if (estimatedDelivery) updateData.estimatedDelivery = new Date(estimatedDelivery);
-    if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
-    if (shippingProvider !== undefined) updateData.shippingProvider = shippingProvider;
-    if (assignSelf) updateData.shipperId = session.userId;
-
-    // Nếu DELIVERED thì set deliveredAt
-    if (status && status.toUpperCase() === 'DELIVERED') {
-      updateData.deliveredAt = new Date();
-    }
-
-    const updated = await prisma.order.update({
-      where: { id: params.id },
-      data: updateData,
-      include: {
-        shipper: { select: { name: true, phone: true } },
+    if (!session || session.role !== 'shipper') throw new AuthorizationError('Shipper access required');
+    const key = request.headers.get('idempotency-key');
+    if (!key) throw new ValidationError('Idempotency-Key header is required');
+    const { id } = await context.params;
+    const input = bodySchema.parse(await request.json());
+    const targetStatus = input.status === 'DELIVERED' ? 'delivered' : 'shipping';
+    return FulfillmentService.transition({
+      fulfillmentId: id,
+      targetStatus,
+      actor: { type: 'SHIPPER', userId: session.userId },
+      reason: input.reason ?? `Shipper action: ${targetStatus}`,
+      metadata: {
+        ...(input.trackingNumber ? { trackingNumber: input.trackingNumber } : {}),
+        ...(input.shippingProvider ? { shippingProvider: input.shippingProvider } : {}),
+        ...(input.estimatedDelivery ? { estimatedDelivery: input.estimatedDelivery } : {}),
+        ...(input.assignSelf ? { assignSelf: true } : {}),
       },
+      idempotencyKey: key,
     });
-
-    return NextResponse.json(serializeMoneyFields(updated));
-  } catch (error) {
-    console.error('[PATCH /api/shipper/orders/:id]', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
-  }
+  })(req);
 }

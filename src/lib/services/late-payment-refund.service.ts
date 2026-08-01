@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import { ConflictError, NotFoundError } from '@/lib/errors';
 import { enqueueOutboxEvent, OUTBOX_EVENT } from '@/lib/services/outbox.service';
 import { Money } from '@/lib/utils/money';
+import { ORDER_STATUS, transitionOrderInTransaction } from '@/lib/services/order-state.service';
 
 const APPROVAL_ATTEMPTS = 4;
 
@@ -46,7 +47,7 @@ export class LatePaymentRefundService {
             },
           });
           await tx.payment.update({ where: { id: payment.id }, data: { status: 'REFUND_PENDING' } });
-          await tx.order.update({ where: { id: order.id }, data: { status: 'refund_required' } });
+          await transitionOrderInTransaction(tx, { orderId: order.id, targetStatus: ORDER_STATUS.REFUND_PENDING, actor: { type: 'ADMIN', userId: actorId }, reason: 'Late payment refund approved', idempotencyKey: `order:${order.id}:refund-pending:${payment.id}` });
           await enqueueOutboxEvent(tx, {
             eventType: OUTBOX_EVENT.REFUND_REQUIRED,
             aggregateType: 'Refund',

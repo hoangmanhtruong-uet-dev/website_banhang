@@ -17,6 +17,10 @@ export default function PasswordPage() {
       return addToast('Mật khẩu xác nhận không khớp! ❌');
     }
     
+    if (formData.newPassword.length < 6) {
+      return addToast('M\u1eadt kh\u1ea9u m\u1edbi ph\u1ea3i c\u00f3 \u00edt nh\u1ea5t 6 k\u00fd t\u1ef1.');
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/user/password', {

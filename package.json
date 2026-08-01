@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test tests/production-remediation.test.ts tests/idempotency.test.ts",
+    "test": "tsx --test tests/production-remediation.test.ts tests/idempotency.test.ts tests/fulfillment-p0.test.ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed-products": "tsx prisma/seed-products.ts",
     "db:seed-vouchers": "tsx prisma/seed-vouchers.ts",
     "db:reset": "prisma migrate reset --force && tsx prisma/seed.ts",
     "idempotency:cleanup": "tsx scripts/cleanup-idempotency.ts",
@@ -24,7 +25,9 @@
     "outbox:reconcile": "tsx scripts/outbox-reconcile.ts",
     "outbox:repair": "tsx scripts/outbox-reconcile.ts --repair",
     "money:audit": "tsx scripts/money-audit.ts",
-    "money:static": "node scripts/money-static.mjs"
+    "money:static": "node scripts/money-static.mjs",
+    "order-state:audit": "node scripts/order-state-audit.mjs",
+    "order-state:reconcile": "tsx scripts/order-state-reconcile.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

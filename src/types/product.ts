@@ -6,9 +6,12 @@ export interface Product {
   currency: 'VND';
   description: string;
   category: string;
+  categoryRef?: { name: string } | null;
   rating: number;
   reviews: number;
   inStock: boolean;
+  stockQuantity?: number;
+  reservedQuantity?: number;
   badge?: string;
   emoji: string;
   gradient: string;

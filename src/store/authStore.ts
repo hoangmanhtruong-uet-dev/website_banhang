@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { clearCheckoutKey } from '@/lib/checkout-idempotency';
+import { useCartStore } from '@/store/cartStore';
 
 interface User {
   id: string;
@@ -33,11 +34,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       const res = await fetch('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
+        useCartStore.getState().setOwner(data.user.id);
         set({ user: data.user, isAuthenticated: true, isLoading: false });
       } else {
+        useCartStore.getState().setOwner(null);
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
     } catch {
+      useCartStore.getState().setOwner(null);
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
@@ -56,6 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return { ok: false, error: data.error || 'Đăng nhập thất bại' };
       }
 
+      useCartStore.getState().setOwner(data.user.id);
       set({ user: data.user, isAuthenticated: true });
       return { ok: true };
     } catch {
@@ -78,6 +83,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return { ok: false, error: errorMsg };
       }
 
+      useCartStore.getState().setOwner(data.user.id);
       set({ user: data.user, isAuthenticated: true });
       return { ok: true };
     } catch {
@@ -89,6 +95,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch { /* ignore */ }
+    useCartStore.getState().setOwner(null);
     set({ user: null, isAuthenticated: false });
     clearCheckoutKey(window.sessionStorage);
     window.sessionStorage.removeItem('checkoutUserId');

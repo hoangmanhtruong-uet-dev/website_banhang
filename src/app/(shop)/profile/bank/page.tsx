@@ -1,208 +1,185 @@
 'use client';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useToastStore } from '@/components/ui/Toast';
 
-const BALANCE_STORAGE_KEY = 'paymentBalanceSimulator';
-const DEFAULT_BANK_BALANCE = 5000000;
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { formatPrice } from '@/lib/utils';
+import { useToastStore } from '@/components/ui/Toast';
 
 interface BankInfo {
   id: string;
   bankName: string;
   accountNumber: string;
   accountName: string;
+  isDefault: boolean;
+}
+
+interface WalletInfo {
+  balance: string;
+  currency: string;
+  hasPaymentPin: boolean;
+}
+
+function apiMessage(data: unknown, fallback: string) {
+  if (typeof data !== 'object' || data === null || !('error' in data)) return fallback;
+  const error = (data as { error?: unknown }).error;
+  if (typeof error === 'string') return error;
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') return error.message;
+  return fallback;
 }
 
 export default function BankPage() {
+  const addToast = useToastStore(s => s.addToast);
+  const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [banks, setBanks] = useState<BankInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [selectedBank, setSelectedBank] = useState<BankInfo | null>(null);
-  const [bankBalance, setBankBalance] = useState(DEFAULT_BANK_BALANCE);
-  const addToast = useToastStore(s => s.addToast);
+  const [topUpAmount, setTopUpAmount] = useState('1000000');
+  const [pinForm, setPinForm] = useState({ currentPassword: '', pin: '' });
+  const [bankForm, setBankForm] = useState({ bankName: '', accountNumber: '', accountName: '', isDefault: false });
 
-  const [formData, setFormData] = useState({
-    bankName: '',
-    accountNumber: '',
-    accountName: '',
-    pin: '',
-  });
-
-  const fetchBanks = async () => {
+  const reload = useCallback(async () => {
     try {
-      const res = await fetch('/api/user/bank');
-      if (res.status === 401) {
+      const [balanceRes, bankRes] = await Promise.all([fetch('/api/user/balance'), fetch('/api/user/bank')]);
+      if (balanceRes.status === 401 || bankRes.status === 401) {
         setAuthError(true);
         return;
       }
-      const data = await res.json();
-      if (Array.isArray(data)) setBanks(data);
-    } catch (err) {
-      console.error(err);
+      if (!balanceRes.ok || !bankRes.ok) throw new Error('Không tải được thông tin ví');
+      setWallet(await balanceRes.json());
+      setBanks(await bankRes.json());
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Không tải được trang ngân hàng');
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast]);
 
-  const loadBalance = () => {
-    if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(BALANCE_STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (typeof parsed.Banking === 'number') setBankBalance(parsed.Banking);
-      } catch {
-        setBankBalance(DEFAULT_BANK_BALANCE);
-      }
+  useEffect(() => { void reload(); }, [reload]);
+
+  const handleTopUp = async (amount = topUpAmount) => {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/user/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiMessage(data, 'Nạp tiền demo thất bại'));
+      setWallet(prev => prev ? { ...prev, balance: data.balance } : prev);
+      addToast(`Đã nạp ${formatPrice(Number(data.amount))} vào số dư demo`);
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Nạp tiền demo thất bại');
+    } finally {
+      setBusy(false);
     }
   };
 
-  useEffect(() => {
-    fetchBanks();
-    loadBalance();
-    const onBalanceUpdate = () => loadBalance();
-    window.addEventListener('payment-balance-updated', onBalanceUpdate);
-    window.addEventListener('storage', onBalanceUpdate);
-    return () => {
-      window.removeEventListener('payment-balance-updated', onBalanceUpdate);
-      window.removeEventListener('storage', onBalanceUpdate);
-    };
-  }, []);
+  const handlePin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const res = await fetch('/api/user/payment-pin', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pinForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiMessage(data, 'Không thể cập nhật PIN'));
+      setWallet(prev => prev ? { ...prev, hasPaymentPin: true } : prev);
+      setPinForm({ currentPassword: '', pin: '' });
+      addToast('Đã cập nhật mã PIN giao dịch');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Không thể cập nhật PIN');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const handleAddBank = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleBank = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
     try {
       const res = await fetch('/api/user/bank', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bankForm),
       });
-      if (res.ok) {
-        addToast('Thêm ngân hàng thành công! 🏦');
-        setShowAddModal(false);
-        setFormData({ bankName: '', accountNumber: '', accountName: '', pin: '' });
-        fetchBanks();
-      }
-    } catch {
-      addToast('Lỗi khi thêm.');
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiMessage(data, 'Không thể thêm tài khoản'));
+      setBankForm({ bankName: '', accountNumber: '', accountName: '', isDefault: false });
+      await reload();
+      addToast('Đã thêm tài khoản ngân hàng');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Không thể thêm tài khoản');
+    } finally {
+      setBusy(false);
     }
   };
 
-  return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '24px', padding: '30px', border: '1px solid rgba(255,255,255,0.05)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>Thẻ Ngân Hàng</h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '5px' }}>Quản lý thẻ tín dụng/ghi nợ và tài khoản ngân hàng</p>
-        </div>
-        <button onClick={() => setShowAddModal(true)} className="btn-primary" style={{ padding: '10px 20px', fontSize: '14px' }}>
-          ➕ Thêm Ngân Hàng
-        </button>
-      </div>
+  if (authError) return (
+    <div className="glass-card" style={{ padding: 32, textAlign: 'center' }}>
+      <p>Phiên đăng nhập đã hết hạn.</p>
+      <Link href="/login?from=/profile/bank" className="btn-primary">Đăng nhập lại</Link>
+    </div>
+  );
+  if (loading) return <div className="glass-card" style={{ padding: 32 }}>Đang tải...</div>;
 
-      {authError ? (
-        <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
-          <p>Phiên đăng nhập đã hết hạn.</p>
-          <Link href="/login?from=/profile/bank" className="btn-primary" style={{ display: 'inline-block', marginTop: '16px', padding: '10px 24px', textDecoration: 'none' }}>
-            Đăng nhập lại
-          </Link>
-        </div>
-      ) : loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>Đang tải...</div>
-      ) : banks.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>Bạn chưa có tài khoản ngân hàng nào.</div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-          {banks.map(bank => (
-            <button
-              key={bank.id}
-              type="button"
-              onClick={() => {
-                setSelectedBank(bank);
-                setShowDetailsModal(true);
-              }}
-              style={{
-                textAlign: 'left', padding: '24px', borderRadius: '20px',
-                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                position: 'relative', overflow: 'hidden', cursor: 'pointer',
-                color: 'inherit'
-              }}
-            >
-              <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '80px', opacity: 0.1 }}>🏦</div>
-              <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: '0 0 10px', textTransform: 'uppercase' }}>{bank.bankName}</p>
-              <p style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '2px', marginBottom: '15px' }}>**** **** **** {bank.accountNumber.slice(-4)}</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <p style={{ fontSize: '14px', margin: 0, fontWeight: 600 }}>{bank.accountName}</p>
-                <span style={{ fontSize: '12px', color: 'var(--accent)' }}>Xem chi tiết</span>
-              </div>
+  return (
+    <div style={{ display: 'grid', gap: 24 }}>
+      <section className="glass-card" style={{ padding: 28 }}>
+        <p style={{ margin: 0, color: 'var(--accent)', fontWeight: 700 }}>NGÂN HÀNG DEMO</p>
+        <h1 style={{ margin: '10px 0 4px', fontSize: 30 }}>Số dư khả dụng</h1>
+        <p style={{ margin: 0, fontSize: 34, fontWeight: 800 }}>{formatPrice(Number(wallet?.balance ?? 0))}</p>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 20 }}>Đây là tiền mô phỏng trong hệ thống, không liên kết ngân hàng hay MoMo thật.</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {['500000', '1000000', '5000000'].map(amount => (
+            <button key={amount} type="button" className="btn-secondary" disabled={busy} onClick={() => { setTopUpAmount(amount); void handleTopUp(amount); }}>
+              + {formatPrice(Number(amount))}
             </button>
           ))}
         </div>
-      )}
-
-      {showDetailsModal && selectedBank && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#121212', width: '460px', padding: '30px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700 }}>{selectedBank.bankName}</h2>
-                <p style={{ margin: '8px 0 0', color: 'var(--text-muted)' }}>Thông tin tài khoản ngân hàng</p>
-              </div>
-              <button type="button" onClick={() => { setShowDetailsModal(false); setSelectedBank(null); }} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '13px' }}>
-                Đóng
-              </button>
-            </div>
-            <div style={{ display: 'grid', gap: '16px' }}>
-              <div style={{ padding: '18px', borderRadius: '18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>Chủ tài khoản</p>
-                <p style={{ margin: '8px 0 0', fontWeight: 700 }}>{selectedBank.accountName}</p>
-              </div>
-              <div style={{ padding: '18px', borderRadius: '18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>Số tài khoản</p>
-                <p style={{ margin: '8px 0 0', fontWeight: 700 }}>{selectedBank.accountNumber}</p>
-              </div>
-              <div style={{ padding: '18px', borderRadius: '18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>Số dư khả dụng</p>
-                <p style={{ margin: '8px 0 0', fontWeight: 700, fontSize: '20px' }}>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(bankBalance)}</p>
-              </div>
-              <div style={{ padding: '18px', borderRadius: '18px', background: 'rgba(56, 189, 248, 0.08)', color: '#dbeafe', border: '1px solid rgba(56, 189, 248, 0.24)' }}>
-                <p style={{ margin: 0, fontWeight: 700 }}>Thông tin thêm</p>
-                <ul style={{ margin: '12px 0 0', paddingLeft: '18px', color: 'var(--text-muted)' }}>
-                  <li>Loại tài khoản: Thanh toán nội địa</li>
-                  <li>Ngân hàng: {selectedBank.bankName}</li>
-                  <li>Trạng thái: Hoạt động</li>
-                </ul>
-              </div>
-              <button type="button" onClick={() => { setShowDetailsModal(false); setSelectedBank(null); }} className="btn-primary" style={{ width: '100%', padding: '14px 18px' }}>
-                Đóng
-              </button>
-            </div>
-          </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 12, maxWidth: 480 }}>
+          <input className="input-field" inputMode="numeric" value={topUpAmount} onChange={e => setTopUpAmount(e.target.value.replace(/\D/g, ''))} placeholder="Từ 100.000 đến 100.000.000" />
+          <button type="button" className="btn-primary" disabled={busy} onClick={() => void handleTopUp()}>Nạp demo</button>
         </div>
-      )}
+      </section>
 
-      {showAddModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#121212', width: '450px', padding: '30px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <h2 style={{ marginBottom: '20px' }}>Thêm tài khoản ngân hàng</h2>
-            <form onSubmit={handleAddBank} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <input required placeholder="Tên Ngân hàng (Ví dụ: Vietcombank)" className="input-field" value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value})} />
-              <input required placeholder="Số tài khoản" className="input-field" value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} />
-              <input required placeholder="Họ và tên chủ tài khoản (viết hoa không dấu)" className="input-field" value={formData.accountName} onChange={e => setFormData({...formData, accountName: e.target.value})} />
-              <input required type="password" placeholder="Mã PIN giao dịch (6 chữ số)" maxLength={6} className="input-field" value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value.replace(/\D/g, '')})} />
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>* Mã PIN này sẽ được dùng để xác nhận khi bạn thanh toán bằng Banking.</p>
-              
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary" style={{ padding: '10px 20px' }}>Hủy</button>
-                <button type="submit" className="btn-primary" style={{ padding: '10px 20px' }}>Xác nhận thêm</button>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+        <section className="glass-card" style={{ padding: 28 }}>
+          <h2 style={{ marginTop: 0 }}>PIN giao dịch</h2>
+          <p style={{ color: 'var(--text-muted)' }}>{wallet?.hasPaymentPin ? 'PIN đã được thiết lập. Bạn có thể đổi PIN bên dưới.' : 'Tạo PIN 6 số để xác nhận Banking và MoMo.'}</p>
+          <form onSubmit={handlePin} style={{ display: 'grid', gap: 12 }}>
+            <input className="input-field" type="password" autoComplete="current-password" required value={pinForm.currentPassword} onChange={e => setPinForm({ ...pinForm, currentPassword: e.target.value })} placeholder="Mật khẩu đăng nhập hiện tại" />
+            <input className="input-field" type="password" inputMode="numeric" required maxLength={6} pattern="\d{6}" value={pinForm.pin} onChange={e => setPinForm({ ...pinForm, pin: e.target.value.replace(/\D/g, '') })} placeholder="PIN mới gồm 6 số" />
+            <button className="btn-primary" disabled={busy}>{wallet?.hasPaymentPin ? 'Đổi PIN' : 'Tạo PIN'}</button>
+          </form>
+        </section>
+
+        <section className="glass-card" style={{ padding: 28 }}>
+          <h2 style={{ marginTop: 0 }}>Thêm tài khoản ngân hàng</h2>
+          <p style={{ color: 'var(--text-muted)' }}>Tài khoản dùng để chọn nguồn thanh toán demo; hệ thống chỉ trừ số dư chung ở trên.</p>
+          <form onSubmit={handleBank} style={{ display: 'grid', gap: 12 }}>
+            <input className="input-field" required value={bankForm.bankName} onChange={e => setBankForm({ ...bankForm, bankName: e.target.value })} placeholder="Tên ngân hàng" />
+            <input className="input-field" required inputMode="numeric" value={bankForm.accountNumber} onChange={e => setBankForm({ ...bankForm, accountNumber: e.target.value.replace(/\D/g, '') })} placeholder="Số tài khoản" />
+            <input className="input-field" required value={bankForm.accountName} onChange={e => setBankForm({ ...bankForm, accountName: e.target.value })} placeholder="Tên chủ tài khoản" />
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={bankForm.isDefault} onChange={e => setBankForm({ ...bankForm, isDefault: e.target.checked })} /> Đặt làm mặc định</label>
+            <button className="btn-primary" disabled={busy}>Thêm tài khoản</button>
+          </form>
+        </section>
+      </div>
+
+      <section className="glass-card" style={{ padding: 28 }}>
+        <h2 style={{ marginTop: 0 }}>Tài khoản đã liên kết</h2>
+        {banks.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Chưa có tài khoản nào.</p> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 16 }}>
+            {banks.map(bank => (
+              <div key={bank.id} style={{ padding: 20, borderRadius: 18, background: 'linear-gradient(135deg, #1e293b, #0f172a)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><strong>{bank.bankName}</strong>{bank.isDefault && <span style={{ color: 'var(--accent)', fontSize: 12 }}>Mặc định</span>}</div>
+                <p style={{ letterSpacing: 2 }}>•••• •••• {bank.accountNumber.slice(-4)}</p>
+                <p style={{ marginBottom: 0, color: 'var(--text-muted)' }}>{bank.accountName}</p>
               </div>
-            </form>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </section>
     </div>
   );
 }

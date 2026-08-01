@@ -5,7 +5,9 @@ import { getSession } from '@/lib/auth';
 export async function GET() {
   try {
     const categories = await prisma.category.findMany({
+      where: { approved: true },
       orderBy: { name: 'asc' },
+      include: { _count: { select: { products: true } } },
     });
     return NextResponse.json(categories);
   } catch (error) {

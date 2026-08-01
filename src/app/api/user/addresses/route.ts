@@ -1,44 +1,59 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { z } from 'zod';
 
-// Lấy danh sách địa chỉ
+const addressSchema = z.object({
+  fullName: z.string().trim().min(2).max(100),
+  phone: z.string().regex(/^0\d{9}$/, 'Số điện thoại không hợp lệ'),
+  province: z.string().trim().min(2).max(100),
+  district: z.string().trim().min(2).max(100),
+  ward: z.string().trim().min(2).max(100),
+  detailAddress: z.string().trim().min(5).max(300),
+  isDefault: z.boolean().optional(),
+}).strict();
+
 export async function GET() {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const addresses = await prisma.address.findMany({
+    return NextResponse.json(await prisma.address.findMany({
       where: { userId: session.userId },
-      orderBy: { isDefault: 'desc' },
-    });
-    return NextResponse.json(addresses);
-  } catch (error) {
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    }));
+  } catch {
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }
 
-// Thêm địa chỉ mới
 export async function POST(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const parsed = addressSchema.safeParse(await req.json());
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
 
-    const body = await req.json();
-    
-    // Nếu đây là địa chỉ đầu tiên, đặt làm mặc định
-    const count = await prisma.address.count({ where: { userId: session.userId } });
-
-    const address = await prisma.address.create({
-      data: {
-        ...body,
-        userId: session.userId,
-        isDefault: count === 0,
-      },
+    const address = await prisma.$transaction(async tx => {
+      const count = await tx.address.count({ where: { userId: session.userId } });
+      const makeDefault = count === 0 || parsed.data.isDefault === true;
+      if (makeDefault) {
+        await tx.address.updateMany({ where: { userId: session.userId }, data: { isDefault: false } });
+      }
+      return tx.address.create({
+        data: {
+          userId: session.userId,
+          fullName: parsed.data.fullName,
+          phone: parsed.data.phone,
+          province: parsed.data.province,
+          district: parsed.data.district,
+          ward: parsed.data.ward,
+          detailAddress: parsed.data.detailAddress,
+          isDefault: makeDefault,
+        },
+      });
     });
-
-    return NextResponse.json(address);
-  } catch (error) {
+    return NextResponse.json(address, { status: 201 });
+  } catch {
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

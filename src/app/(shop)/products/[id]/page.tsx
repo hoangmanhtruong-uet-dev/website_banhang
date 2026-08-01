@@ -1,14 +1,18 @@
 'use client';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { formatPrice } from '@/lib/utils';
-import { percentageOff } from '@/lib/utils/client-money';
+import { compareMoneyStrings, percentageOff } from '@/lib/utils/client-money';
 import { useState, useEffect, useTransition } from 'react';
-import { useCartStore } from '@/store/cartStore';
+import { getAvailableStock, useCartStore } from '@/store/cartStore';
 import { useToastStore } from '@/components/ui/Toast';
 import { Product } from '@/types/product';
+import { useAuthStore } from '@/store/authStore';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
@@ -51,7 +55,16 @@ export default function ProductDetailPage() {
     </div>
   );
 
+  const availableStock = getAvailableStock(product);
+  const hasDiscount = Boolean(product.originalPrice && compareMoneyStrings(product.originalPrice, product.price) > 0);
+
   const handleAddToCart = () => {
+    if (isAuthLoading || availableStock <= 0) return;
+    if (!isAuthenticated) {
+      addToast('Vui l\u00f2ng \u0111\u0103ng nh\u1eadp \u0111\u1ec3 th\u00eam s\u1ea3n ph\u1ea9m v\u00e0o gi\u1ecf h\u00e0ng.');
+      router.push('/login?from=' + encodeURIComponent(pathname || '/'));
+      return;
+    }
     startTransition(() => {
       addItem(product, qty);
       addToast(`Đã thêm ${qty} ${product.name} vào giỏ hàng! 🛒`);
@@ -118,10 +131,10 @@ export default function ProductDetailPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
             <span style={{ fontSize: '32px', fontWeight: 700, color: 'var(--text-primary)' }}>{formatPrice(product.price)}</span>
-            {product.originalPrice && (
+            {hasDiscount && product.originalPrice && (
               <span style={{ fontSize: '20px', textDecoration: 'line-through', color: 'var(--text-muted)' }}>{formatPrice(product.originalPrice)}</span>
             )}
-            {product.originalPrice && (
+            {hasDiscount && product.originalPrice && (
               <span style={{ background: 'rgba(239,68,68,0.9)', color: '#fff', fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px' }}>
                 -{percentageOff(product.price, product.originalPrice)}%
               </span>
@@ -143,15 +156,15 @@ export default function ProductDetailPage() {
             <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
               <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ padding: '12px 20px', background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '18px' }}>−</button>
               <span style={{ width: '40px', textAlign: 'center', fontWeight: 600 }}>{qty}</span>
-              <button onClick={() => setQty(qty + 1)} style={{ padding: '12px 20px', background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '18px' }}>+</button>
+              <button onClick={() => setQty(Math.min(availableStock, qty + 1))} disabled={qty >= availableStock} style={{ padding: '12px 20px', background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '18px' }}>+</button>
             </div>
             <button
               className="btn-primary"
               style={{ flex: 1, justifyContent: 'center', padding: '16px', opacity: isPending ? 0.7 : 1 }}
               onClick={handleAddToCart}
-              disabled={isPending || !product.inStock}
+              disabled={isPending || isAuthLoading || availableStock <= 0}
             >
-              {!product.inStock ? 'Hết hàng' : isPending ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
+              {availableStock <= 0 ? 'Hết hàng' : isPending ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
             </button>
           </div>
 

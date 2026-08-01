@@ -83,9 +83,24 @@ export async function middleware(request: NextRequest) {
       return redirectToLogin(request, pathname);
     }
   }
+  // Bảo vệ shipper - đăng nhập + đúng vai trò giao hàng
+  if (pathname.startsWith('/shipper')) {
+    if (!token) {
+      return redirectToLogin(request, pathname);
+    }
+    try {
+      const payload = await verifyAuthToken(token);
+      if (payload.role !== 'shipper') {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+    } catch {
+      return redirectToLogin(request, pathname);
+    }
+  }
+
 
   // Bảo vệ route checkout - yêu cầu đăng nhập
-  if (pathname.startsWith('/checkout')) {
+  if (pathname.startsWith('/cart') || pathname.startsWith('/checkout')) {
     if (!token) {
       return redirectToLogin(request, pathname);
     }
@@ -100,5 +115,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/profile/:path*', '/seller/:path*', '/checkout/:path*'],
+  matcher: ['/admin/:path*', '/profile/:path*', '/seller/:path*', '/shipper/:path*', '/cart/:path*', '/checkout/:path*'],
 };

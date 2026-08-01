@@ -12,6 +12,7 @@ import { DeadLetterService, OutboxReconciliationService, outboxMetrics } from '.
 import { NonRetryableOutboxError, OUTBOX_EVENT, RetryableOutboxError } from '../src/lib/services/outbox.service';
 import { Money } from '../src/lib/utils/money';
 import { OutboxWorker } from '../src/lib/services/outbox-worker';
+import { ORDER_STATUS, OrderStateService } from '../src/lib/services/order-state.service';
 
 if (process.env.RUN_IDEMPOTENCY_INTEGRATION !== '1') throw new Error('Outbox integration tests require the dedicated MySQL 8 test database.');
 
@@ -22,6 +23,8 @@ async function clean(): Promise<void> {
   await prisma.notificationDelivery.deleteMany();
   await prisma.processedOutboxEvent.deleteMany();
   await prisma.domainAuditLog.deleteMany();
+  await prisma.orderReturn.deleteMany();
+  await prisma.orderStatusTransition.deleteMany();
   await prisma.walletLedger.deleteMany();
   await prisma.outboxEvent.deleteMany();
   await prisma.inventoryReservation.deleteMany();
@@ -244,9 +247,10 @@ test('worker stop is idempotent, stops new polls, and runtime failure makes read
 });
 
 test('late webhook atomically persists SUCCEEDED_LATE payment, review state and deterministic event without stock consumption', async () => {
-  const { owner, order } = await lateFixture(100, 40);
-  await prisma.payment.delete({ where: { orderId: order.id } });
-  await prisma.order.update({ where: { id: order.id }, data: { status: 'expired', paymentStatus: 'pending' } });
+  const token = suffix();
+  const owner = await prisma.user.create({ data: { code: `OUT-${token.slice(0, 8)}`, name: 'Late Owner', email: `${token}@late.test`, password: 'x', balance: 100 } });
+  const order = await prisma.order.create({ data: { customerName: owner.name, customerEmail: owner.email, customerPhone: '0900000000', shippingAddress: 'test', paymentMethod: 'bank_transfer', total: 40, userId: owner.id } });
+  await OrderStateService.transition({ orderId: order.id, targetStatus: ORDER_STATUS.EXPIRED, actor: { type: 'SYSTEM', workerId: 'test-expiry' }, idempotencyKey: `fixture-expired:${order.id}` });
   const payment = await prisma.$transaction((tx) => PaymentService.recordWebhookSuccess(tx, {
     orderId: order.id, provider: 'integration-provider', providerEventId: `late:${suffix()}`,
   }));

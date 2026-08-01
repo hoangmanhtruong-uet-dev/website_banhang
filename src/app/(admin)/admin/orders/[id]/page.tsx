@@ -47,6 +47,10 @@ interface OrderDetail {
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: '⏳ CHỜ XỬ LÝ', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
+  paid: { label: '💳 ĐÃ THANH TOÁN', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.15)' },
+  confirmed: { label: '✅ ĐÃ XÁC NHẬN', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' },
+  packing: { label: '📦 ĐANG ĐÓNG GÓI', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)' },
+  shipping: { label: '🚚 ĐANG GIAO HÀNG', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.15)' },
   processing: { label: '🔄 ĐANG CHUẨN BỊ', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' },
   shipped: { label: '🚚 ĐANG GIAO HÀNG', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.15)' },
   delivered: { label: '✅ ĐÃ GIAO HÀNG', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' },
@@ -87,7 +91,7 @@ export default function AdminOrderDetailPage() {
     try {
       const res = await fetch(`/api/admin/orders/${params.id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
         body: JSON.stringify({ status, trackingNumber }),
       });
 
@@ -241,8 +245,9 @@ export default function AdminOrderDetailPage() {
                   style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '14px', fontWeight: 600 }}
                 >
                   <option value="pending">⏳ CHỜ XỬ LÝ</option>
-                  <option value="processing">🔄 ĐANG CHUẨN BỊ</option>
-                  <option value="shipped">🚚 ĐANG GIAO HÀNG</option>
+                  <option value="confirmed">🔄 ĐANG CHUẨN BỊ</option>
+                  <option value="packing">📦 ĐANG ĐÓNG GÓI</option>
+                  <option value="shipping">🚚 ĐANG GIAO HÀNG</option>
                   <option value="delivered">✅ ĐÃ GIAO HÀNG</option>
                   <option value="cancelled">❌ ĐÃ HỦY ĐƠN</option>
                 </select>

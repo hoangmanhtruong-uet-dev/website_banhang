@@ -25,7 +25,7 @@ export class EmailService {
   }
 
   static async sendPasswordResetEmail(email: string, token: string) {
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
     return this.sendEmail({
       to: email,
       subject: 'Đặt lại mật khẩu',

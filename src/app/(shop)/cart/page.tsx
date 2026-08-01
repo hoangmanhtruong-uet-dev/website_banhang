@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCartStore } from '@/store/cartStore';
+import { getAvailableStock, useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
 import { multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 
@@ -39,7 +39,7 @@ export default function CartPage() {
               <div className="qty-controls">
                 <button className="qty-btn" onClick={() => updateQuantity(item.product.id, item.quantity-1)}>−</button>
                 <span className="qty-value">{item.quantity}</span>
-                <button className="qty-btn" onClick={() => updateQuantity(item.product.id, item.quantity+1)}>+</button>
+                <button className="qty-btn" disabled={item.quantity >= getAvailableStock(item.product)} onClick={() => updateQuantity(item.product.id, item.quantity+1)}>+</button>
               </div>
               <p style={{ fontWeight:700, color:'var(--accent)', minWidth:'110px', textAlign:'right' }}>
                 {formatPrice(multiplyMoneyByQuantity(item.product.price, item.quantity))}

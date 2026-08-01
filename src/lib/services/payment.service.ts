@@ -5,6 +5,7 @@ import type { TransactionClient } from '@/lib/services/idempotency.service';
 import { InventoryService } from '@/lib/services/inventory.service';
 import { buildProviderIdempotencyKey, internalWalletProvider } from '@/lib/services/payment-provider';
 import { Money, assertSameCurrency } from '@/lib/utils/money';
+import { ORDER_STATUS, transitionOrderInTransaction } from '@/lib/services/order-state.service';
 
 export class PaymentService {
   static async recordWebhookSuccess(tx: TransactionClient, input: { orderId: string; provider: string; providerEventId: string }) {
@@ -24,7 +25,7 @@ export class PaymentService {
       update: {},
     });
     assertSameCurrency(payment.currency, order.currency);
-    const outcome = await InventoryService.consumeForPayment(tx, order.id, payment.id);
+    const outcome = await InventoryService.consumeForPayment(tx, order.id, payment.id, { type: 'PAYMENT_WEBHOOK', provider: input.provider });
     if (outcome === 'late' && payment.status !== 'SUCCEEDED_LATE') return tx.payment.update({ where: { id: payment.id }, data: { status: 'SUCCEEDED_LATE' } });
     return payment;
   }
@@ -59,7 +60,7 @@ export class PaymentService {
       userId: input.userId, refundId: null, deterministicKey: `payment:${payment.id}:wallet-debit`, referenceType: 'Payment', referenceId: payment.id,
       amount: Money.subtract('0', order.total), balanceBefore: wallet.balance, balanceAfter, currency: order.currency, entryType: 'PAYMENT_DEBIT',
     } });
-    await InventoryService.consumeForPayment(tx, order.id);
+    await InventoryService.consumeForPayment(tx, order.id, payment.id, { type: 'SYSTEM', workerId: 'internal-wallet-payment' });
     const { idempotencyKey: _idempotencyKey, ...safePayment } = payment;
     return safePayment;
   }
@@ -71,6 +72,11 @@ export class RefundService {
     await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM payment WHERE id = ${input.paymentId} FOR UPDATE`);
     const payment = await tx.payment.findFirst({ where: { id: input.paymentId, userId: input.userId } });
     if (!payment) throw new NotFoundError('Không tìm thấy giao dịch thanh toán');
+    await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM ${Prisma.raw('`order`')} WHERE id = ${payment.orderId} FOR UPDATE`);
+    let order = await tx.order.findUniqueOrThrow({ where: { id: payment.orderId } });
+    if (order.status !== ORDER_STATUS.REFUND_PENDING) {
+      order = await transitionOrderInTransaction(tx, { orderId: order.id, targetStatus: ORDER_STATUS.REFUND_PENDING, actor: { type: 'SYSTEM', workerId: 'refund-service' }, reason: 'Refund requested', idempotencyKey: `refund-pending:${input.idempotencyKey}` });
+    }
     assertSameCurrency(input.currency, payment.currency);
     const nextRefunded = Money.round(Money.add(payment.refundedAmount, input.amount));
     if (Money.compare(nextRefunded, payment.amount) > 0) throw new ConflictError('Tổng số tiền hoàn vượt quá số tiền đã thanh toán');
@@ -99,8 +105,8 @@ export class RefundService {
       amount: input.amount, balanceBefore: wallet.balance, balanceAfter, currency: payment.currency, entryType: 'REFUND_CREDIT',
     } });
     const fullyRefunded = Money.compare(nextRefunded, payment.amount) === 0;
-    await tx.payment.update({ where: { id: payment.id }, data: { status: fullyRefunded ? 'refunded' : 'PARTIALLY_REFUNDED', refundedAmount: nextRefunded } });
-    if (fullyRefunded) await tx.order.update({ where: { id: payment.orderId }, data: { paymentStatus: 'refunded' } });
+    await tx.payment.update({ where: { id: payment.id }, data: { status: fullyRefunded ? 'REFUNDED' : 'PARTIALLY_REFUNDED', refundedAmount: nextRefunded } });
+    if (fullyRefunded) await transitionOrderInTransaction(tx, { orderId: payment.orderId, targetStatus: ORDER_STATUS.REFUNDED, actor: { type: 'SYSTEM', workerId: 'refund-service' }, reason: 'Full refund completed', idempotencyKey: `refund-completed:${input.idempotencyKey}` });
     const { idempotencyKey: _idempotencyKey, ...safeRefund } = refund;
     return safeRefund;
   }

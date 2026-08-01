@@ -41,11 +41,21 @@ enum PaymentStatus {
 
 enum OrderStatus {
   pending
+  paid
+  payment_failed
   confirmed
-  processing
-  shipped
+  packing
+  shipping
   delivered
+  expired
   cancelled
+  payment_review
+  refund_pending
+  refunded
+  return_requested
+  return_approved
+  return_rejected
+  returning
   returned
 }
 
@@ -76,6 +86,7 @@ model User {
   avatar              String?
   balance             Decimal              @default(0) @db.Decimal(19, 4)
   currency            String               @default("VND") @db.Char(3)
+  paymentPinHash      String?
   licensePlate        String? // Biển số xe cho Shipper
   transportType       String? // Loại phương tiện: Xe máy, Ô tô...
   createdAt           DateTime             @default(now())
@@ -83,6 +94,8 @@ model User {
   reviews             Review[]
   orders              Order[]
   shipperOrders       Order[]              @relation("ShipperOrders")
+  sellerFulfillments  SellerFulfillment[]  @relation("SellerFulfillments")
+  shipperFulfillments SellerFulfillment[]  @relation("ShipperFulfillments")
   products            Product[]            @relation("UserProducts")
   addresses           Address[]
   bankInfos           BankInfo[]
@@ -252,36 +265,49 @@ model Review {
 }
 
 model Order {
-  id                    String                 @id @default(cuid())
+  id                    String                  @id @default(cuid())
   customerName          String
   customerEmail         String
   customerPhone         String
   shippingAddress       String
   paymentMethod         String
-  paymentStatus         String                 @default("pending")
-  subtotal              Decimal                @default(0) @db.Decimal(19, 4)
-  discountAmount        Decimal                @default(0) @db.Decimal(19, 4)
-  shippingFee           Decimal                @default(0) @db.Decimal(19, 4)
-  taxAmount             Decimal                @default(0) @db.Decimal(19, 4)
+  paymentStatus         String                  @default("pending")
+  subtotal              Decimal                 @default(0) @db.Decimal(19, 4)
+  discountAmount        Decimal                 @default(0) @db.Decimal(19, 4)
+  shippingFee           Decimal                 @default(0) @db.Decimal(19, 4)
+  taxAmount             Decimal                 @default(0) @db.Decimal(19, 4)
   shippingProvider      String?
   trackingNumber        String?
   estimatedDelivery     DateTime?
+  paidAt                DateTime?
+  confirmedAt           DateTime?
+  packingStartedAt      DateTime?
+  shippedAt             DateTime?
   deliveredAt           DateTime?
-  total                 Decimal                @db.Decimal(19, 4)
-  currency              String                 @default("VND") @db.Char(3)
-  status                String                 @default("pending")
+  cancelledAt           DateTime?
+  returnRequestedAt     DateTime?
+  returnedAt            DateTime?
+  refundPendingAt       DateTime?
+  refundedAt            DateTime?
+  total                 Decimal                 @db.Decimal(19, 4)
+  currency              String                  @default("VND") @db.Char(3)
+  status                String                  @default("pending")
+  statusVersion         Int                     @default(0)
   userId                String?
-  user                  User?                  @relation(fields: [userId], references: [id])
+  user                  User?                   @relation(fields: [userId], references: [id])
   shipperId             String?
-  shipper               User?                  @relation("ShipperOrders", fields: [shipperId], references: [id])
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  shipper               User?                   @relation("ShipperOrders", fields: [shipperId], references: [id])
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
   orderItems            OrderItem[]
   idempotencyScope      String?
-  idempotencyKey        String?                @db.VarChar(255)
+  idempotencyKey        String?                 @db.VarChar(255)
   payment               Payment?
   inventoryReservations InventoryReservation[]
   outboxEvents          OutboxEvent[]
+  statusTransitions     OrderStatusTransition[]
+  returns               OrderReturn[]
+  fulfillments          SellerFulfillment[]
 
   @@unique([idempotencyScope, idempotencyKey])
   @@index([userId])
@@ -289,6 +315,95 @@ model Order {
   @@index([status])
   @@index([paymentStatus])
   @@map("order")
+}
+
+model OrderStatusTransition {
+  id             String   @id @default(cuid())
+  orderId        String
+  fromStatus     String   @db.VarChar(32)
+  toStatus       String   @db.VarChar(32)
+  actorType      String   @db.VarChar(32)
+  actorId        String?  @db.VarChar(191)
+  reason         String?  @db.VarChar(500)
+  metadata       String?  @db.Text
+  idempotencyKey String?  @unique(map: "order_transition_idem_key") @db.VarChar(191)
+  requestHash    String?  @db.Char(64)
+  createdAt      DateTime @default(now())
+  order          Order    @relation(fields: [orderId], references: [id], map: "order_transition_order_fk")
+
+  @@index([orderId, createdAt], map: "order_transition_order_created_idx")
+  @@index([actorType, actorId], map: "order_transition_actor_idx")
+  @@map("order_status_transition")
+}
+
+model SellerFulfillment {
+  id                String                        @id @default(cuid())
+  orderId           String
+  order             Order                         @relation(fields: [orderId], references: [id], onDelete: Cascade, map: "seller_fulfillment_order_fk")
+  sellerId          String?
+  seller            User?                         @relation("SellerFulfillments", fields: [sellerId], references: [id], map: "seller_fulfillment_seller_fk")
+  sellerScope       String                        @db.VarChar(191)
+  shipperId         String?
+  shipper           User?                         @relation("ShipperFulfillments", fields: [shipperId], references: [id], map: "seller_fulfillment_shipper_fk")
+  status            String                        @default("pending") @db.VarChar(32)
+  statusVersion     Int                           @default(0)
+  subtotal          Decimal                       @default(0) @db.Decimal(19, 4)
+  discountAmount    Decimal                       @default(0) @db.Decimal(19, 4)
+  shippingFee       Decimal                       @default(0) @db.Decimal(19, 4)
+  taxAmount         Decimal                       @default(0) @db.Decimal(19, 4)
+  total             Decimal                       @default(0) @db.Decimal(19, 4)
+  currency          String                        @default("VND") @db.Char(3)
+  shippingProvider  String?
+  trackingNumber    String?
+  estimatedDelivery DateTime?
+  confirmedAt       DateTime?
+  packingStartedAt  DateTime?
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+  orderItems        OrderItem[]
+  transitions       SellerFulfillmentTransition[]
+
+  @@unique([orderId, sellerScope], map: "seller_fulfillment_order_scope_key")
+  @@index([sellerId, status], map: "seller_fulfillment_seller_status_idx")
+  @@index([shipperId, status], map: "seller_fulfillment_shipper_status_idx")
+  @@index([status, createdAt], map: "seller_fulfillment_status_created_idx")
+  @@map("seller_fulfillment")
+}
+
+model SellerFulfillmentTransition {
+  id             String            @id @default(cuid())
+  fulfillmentId  String
+  fulfillment    SellerFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade, map: "fulfillment_transition_fulfillment_fk")
+  fromStatus     String            @db.VarChar(32)
+  toStatus       String            @db.VarChar(32)
+  actorType      String            @db.VarChar(32)
+  actorId        String?           @db.VarChar(191)
+  reason         String?           @db.VarChar(500)
+  metadata       String?           @db.Text
+  idempotencyKey String            @unique(map: "fulfillment_transition_idem_key") @db.VarChar(191)
+  requestHash    String            @db.Char(64)
+  createdAt      DateTime          @default(now())
+
+  @@index([fulfillmentId, createdAt], map: "fulfillment_transition_created_idx")
+  @@map("seller_fulfillment_transition")
+}
+
+model OrderReturn {
+  id             String    @id @default(cuid())
+  orderId        String
+  status         String    @default("REQUESTED") @db.VarChar(32)
+  reason         String    @db.VarChar(500)
+  requestedBy    String    @db.VarChar(191)
+  idempotencyKey String    @unique(map: "order_return_idem_key") @db.VarChar(191)
+  requestedAt    DateTime  @default(now())
+  decidedAt      DateTime?
+  completedAt    DateTime?
+  order          Order     @relation(fields: [orderId], references: [id], map: "order_return_order_fk")
+
+  @@index([orderId, status], map: "order_return_order_status_idx")
+  @@map("order_return")
 }
 
 model OrderItem {
@@ -301,11 +416,14 @@ model OrderItem {
   currency             String                @default("VND") @db.Char(3)
   order                Order                 @relation(fields: [orderId], references: [id])
   product              Product               @relation(fields: [productId], references: [id])
+  fulfillmentId        String?
+  fulfillment          SellerFulfillment?    @relation(fields: [fulfillmentId], references: [id], map: "orderitem_fulfillment_fk")
   inventoryReservation InventoryReservation?
 
   @@unique([orderId, productId])
   @@index([orderId])
   @@index([productId])
+  @@index([fulfillmentId], map: "orderitem_fulfillment_idx")
   @@map("orderitem")
 }
 

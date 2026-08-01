@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
@@ -15,6 +15,10 @@ export default function RegisterPage() {
   const register = useAuthStore(s => s.register);
   const addToast = useToastStore(s => s.addToast);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('from');
+  const safeRedirect = redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/';
+  const loginHref = redirectTo ? '/login?from=' + encodeURIComponent(redirectTo) : '/login';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +29,7 @@ export default function RegisterPage() {
 
     if (result.ok) {
       addToast('Đăng ký thành công! 🎉');
-      router.push('/');
+      router.push(safeRedirect);
       router.refresh();
     } else {
       setError(result.error || 'Đăng ký thất bại');
@@ -64,7 +68,7 @@ export default function RegisterPage() {
             {loading ? 'Đang tạo tài khoản...' : 'Đăng ký'}
           </button>
           <p style={{ textAlign:'center', marginTop:'20px', fontSize:'14px', color:'var(--text-muted)' }}>
-            Đã có tài khoản? <Link href="/login" style={{ color:'var(--accent)', fontWeight:600 }}>Đăng nhập</Link>
+            Đã có tài khoản? <Link href={loginHref} style={{ color:'var(--accent)', fontWeight:600 }}>Đăng nhập</Link>
           </p>
         </form>
       </div>

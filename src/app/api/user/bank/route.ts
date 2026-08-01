@@ -1,37 +1,30 @@
-import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { createHandler } from '@/lib/api-handler';
+import { AuthenticationError } from '@/lib/errors';
 
-export async function GET() {
-  try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+const bankSchema = z.object({
+  bankName: z.string().trim().min(2, 'Vui lòng nhập tên ngân hàng').max(100),
+  accountNumber: z.string().trim().regex(/^\d{6,20}$/, 'Số tài khoản phải gồm 6-20 chữ số'),
+  accountName: z.string().trim().min(2, 'Vui lòng nhập tên chủ tài khoản').max(100),
+  isDefault: z.boolean().optional().default(false),
+});
 
-    const banks = await prisma.bankInfo.findMany({
-      where: { userId: session.userId },
-      orderBy: { createdAt: 'desc' },
-    });
-    return NextResponse.json(banks);
-  } catch (error) {
-    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
-  }
-}
+export const GET = createHandler(async () => {
+  const session = await getSession();
+  if (!session) throw new AuthenticationError();
+  return prisma.bankInfo.findMany({ where: { userId: session.userId }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }] });
+});
 
-export async function POST(req: Request) {
-  try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const body = await req.json();
-    const bank = await prisma.bankInfo.create({
-      data: {
-        ...body,
-        userId: session.userId,
-      },
-    });
-
-    return NextResponse.json(bank);
-  } catch (error) {
-    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
-  }
-}
+export const POST = createHandler(async (req) => {
+  const session = await getSession();
+  if (!session) throw new AuthenticationError();
+  const parsed = bankSchema.parse(await req.json());
+  return prisma.$transaction(async (tx) => {
+    const count = await tx.bankInfo.count({ where: { userId: session.userId } });
+    const isDefault = parsed.isDefault || count === 0;
+    if (isDefault) await tx.bankInfo.updateMany({ where: { userId: session.userId }, data: { isDefault: false } });
+    return tx.bankInfo.create({ data: { ...parsed, isDefault, userId: session.userId } });
+  });
+});

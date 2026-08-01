@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
-import { compareMoneyStrings, multiplyMoneyByQuantity, subtractMoneyStrings } from '@/lib/utils/client-money';
+import { compareMoneyStrings, multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 import { useToastStore } from '@/components/ui/Toast';
 import { clearCheckoutKey, getOrCreateCheckoutKey } from '@/lib/checkout-idempotency';
 
@@ -15,21 +16,19 @@ interface CheckoutForm {
   shippingAddress: string;
   paymentMethod: 'Banking' | 'MoMo';
 }
-
-interface BankInfo {
-  id: string;
-  bankName: string;
-  accountNumber: string;
-  accountName: string;
-}
+interface BankInfo { id: string; bankName: string; accountNumber: string; accountName: string; isDefault: boolean }
+interface WalletInfo { balance: string; currency: string; hasPaymentPin: boolean }
 
 const STORAGE_KEY = 'checkoutFormData';
 const CHECKOUT_USER_STORAGE_KEY = 'checkoutUserId';
-const BALANCE_STORAGE_KEY = 'paymentBalanceSimulator';
-const DEFAULT_BALANCE = {
-  Banking: '5000000.0000',
-  MoMo: '2000000.0000',
-};
+
+function apiMessage(data: unknown, fallback: string) {
+  if (typeof data !== 'object' || data === null || !('error' in data)) return fallback;
+  const error = (data as { error?: unknown }).error;
+  if (typeof error === 'string') return error;
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') return error.message;
+  return fallback;
+}
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();
@@ -37,254 +36,131 @@ export default function PaymentPage() {
   const addToast = useToastStore(s => s.addToast);
   const { items, clearCart, getTotal } = useCartStore();
   const [checkoutData, setCheckoutData] = useState<CheckoutForm | null>(null);
+  const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [banks, setBanks] = useState<BankInfo[]>([]);
   const [selectedBank, setSelectedBank] = useState('');
   const [momoPhone, setMomoPhone] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
-  const [balances, setBalances] = useState(DEFAULT_BALANCE);
-
+  const [pageLoading, setPageLoading] = useState(true);
   const method = searchParams.get('method') as 'Banking' | 'MoMo' | null;
   const total = getTotal();
 
   useEffect(() => {
-    if (!method) {
-      router.push('/checkout');
-      return;
-    }
-
-    const stored = typeof window !== 'undefined' ? window.sessionStorage.getItem(STORAGE_KEY) : null;
-    if (!stored) {
-      router.push('/checkout');
-      return;
-    }
-
+    if (method !== 'Banking' && method !== 'MoMo') { router.replace('/checkout'); return; }
+    const stored = window.sessionStorage.getItem(STORAGE_KEY);
+    if (!stored) { router.replace('/checkout'); return; }
     try {
       const data = JSON.parse(stored) as CheckoutForm;
-      if (!data || data.paymentMethod !== method) {
-        router.push('/checkout');
-        return;
-      }
+      if (data.paymentMethod !== method) { router.replace('/checkout'); return; }
       setCheckoutData(data);
-    } catch {
-      router.push('/checkout');
-    }
+      if (method === 'MoMo') setMomoPhone(data.customerPhone);
+    } catch { router.replace('/checkout'); }
   }, [method, router]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const storedBalances = window.localStorage.getItem(BALANCE_STORAGE_KEY);
-    if (storedBalances) {
+    if (method !== 'Banking' && method !== 'MoMo') return;
+    const load = async () => {
       try {
-        setBalances(JSON.parse(storedBalances));
-      } catch {
-        setBalances(DEFAULT_BALANCE);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (method === 'Banking') {
-      fetch('/api/user/bank')
-        .then(res => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) {
-            setBanks(data);
-            if (data.length > 0) {
-              setSelectedBank(data[0].id);
-            }
-          }
-        })
-        .catch(() => {
-          addToast('Không thể tải tài khoản ngân hàng.');
-        });
-    }
-  }, [method, addToast]);
+        const responses = await Promise.all([
+          fetch('/api/user/balance'),
+          method === 'Banking' ? fetch('/api/user/bank') : Promise.resolve(null),
+        ]);
+        const balanceRes = responses[0];
+        if (balanceRes.status === 401) { router.replace('/login?from=/checkout'); return; }
+        const balanceData = await balanceRes.json();
+        if (!balanceRes.ok) throw new Error(apiMessage(balanceData, 'Không tải được số dư'));
+        setWallet(balanceData);
+        const bankRes = responses[1];
+        if (bankRes) {
+          const bankData = await bankRes.json();
+          if (!bankRes.ok) throw new Error(apiMessage(bankData, 'Không tải được tài khoản ngân hàng'));
+          setBanks(bankData);
+          const preferred = bankData.find((bank: BankInfo) => bank.isDefault) ?? bankData[0];
+          if (preferred) setSelectedBank(preferred.id);
+        }
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : 'Không tải được thông tin thanh toán');
+      } finally { setPageLoading(false); }
+    };
+    void load();
+  }, [method, router, addToast]);
 
   const handlePayment = async () => {
-    if (!checkoutData) return;
-
-    if (method === 'Banking') {
-      if (!selectedBank) {
-        addToast('Vui lòng chọn tài khoản ngân hàng.');
-        return;
-      }
-      if (!/^\d{6}$/.test(pin)) {
-        addToast('Mã PIN ngân hàng phải gồm 6 chữ số.');
-        return;
-      }
-      if (compareMoneyStrings(total, balances.Banking) > 0) {
-        addToast('Tài khoản ngân hàng không đủ số dư.');
-        return;
-      }
-    }
-
-    if (method === 'MoMo') {
-      if (!/^\d{10,11}$/.test(momoPhone)) {
-        addToast('Số điện thoại MoMo không hợp lệ.');
-        return;
-      }
-      if (!/^\d{6}$/.test(pin)) {
-        addToast('Mã PIN MoMo phải gồm 6 chữ số.');
-        return;
-      }
-      if (compareMoneyStrings(total, balances.MoMo) > 0) {
-        addToast('Số dư ví MoMo không đủ.');
-        return;
-      }
-    }
-
-    if (items.length === 0) {
-      addToast('Giỏ hàng trống.');
-      router.push('/cart');
-      return;
-    }
+    if (!checkoutData || !method || !wallet) return;
+    if (!wallet.hasPaymentPin) { addToast('Bạn chưa tạo PIN giao dịch. Hãy vào trang Ngân hàng để thiết lập.'); return; }
+    if (!/^\d{6}$/.test(pin)) { addToast('Mã PIN giao dịch phải gồm đúng 6 chữ số.'); return; }
+    if (method === 'Banking' && !selectedBank) { addToast('Vui lòng chọn tài khoản ngân hàng.'); return; }
+    if (method === 'MoMo' && !/^0\d{9}$/.test(momoPhone)) { addToast('Số điện thoại MoMo phải gồm 10 số và bắt đầu bằng 0.'); return; }
+    if (compareMoneyStrings(total, wallet.balance) > 0) { addToast('Số dư demo không đủ. Vui lòng nạp thêm tiền.'); return; }
+    if (items.length === 0) { addToast('Giỏ hàng trống.'); router.push('/cart'); return; }
 
     setLoading(true);
     try {
-      const orderItems = items.map(item => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-        price: item.product.price,
-      }));
-
+      const orderItems = items.map(item => ({ productId: item.product.id, quantity: item.quantity }));
       const checkoutUserId = window.sessionStorage.getItem(CHECKOUT_USER_STORAGE_KEY);
       if (!checkoutUserId) throw new Error('Không xác định được người dùng checkout');
-      const requestPayload = { ...checkoutData, items: orderItems };
-      const idempotencyKey = await getOrCreateCheckoutKey(window.sessionStorage, checkoutUserId, requestPayload);
+      const safePayload = { ...checkoutData, items: orderItems, bankId: method === 'Banking' ? selectedBank : undefined, paymentPhone: method === 'MoMo' ? momoPhone : undefined };
+      const idempotencyKey = await getOrCreateCheckoutKey(window.sessionStorage, checkoutUserId, safePayload);
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
-        body: JSON.stringify(requestPayload),
+        body: JSON.stringify({ ...safePayload, paymentPin: pin }),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error?.message || 'Lỗi khi tạo đơn hàng.');
-      }
-
-      const newBalances = { ...balances };
-      if (method === 'Banking') {
-        newBalances.Banking = subtractMoneyStrings(balances.Banking, total);
-      } else if (method === 'MoMo') {
-        newBalances.MoMo = subtractMoneyStrings(balances.MoMo, total);
-      }
-      setBalances(newBalances);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(BALANCE_STORAGE_KEY, JSON.stringify(newBalances));
-        window.dispatchEvent(new Event('payment-balance-updated'));
-      }
-
+      if (!res.ok) throw new Error(apiMessage(data, 'Lỗi khi tạo đơn hàng'));
       window.sessionStorage.removeItem(STORAGE_KEY);
-      clearCheckoutKey(window.sessionStorage);
       window.sessionStorage.removeItem(CHECKOUT_USER_STORAGE_KEY);
+      clearCheckoutKey(window.sessionStorage);
       clearCart();
-      addToast(`Thanh toán thành công! Đã trừ ${formatPrice(total)} khỏi số dư ${method}. 🎉`);
+      addToast(`Thanh toán demo thành công! Đã trừ ${formatPrice(total)}.`);
       router.push('/profile/orders');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Lỗi thanh toán';
-      addToast(message);
-    } finally {
-      setLoading(false);
-    }
+      addToast(error instanceof Error ? error.message : 'Lỗi thanh toán');
+    } finally { setLoading(false); }
   };
 
-  if (!checkoutData || !method) {
-    return null;
-  }
+  if (!checkoutData || !method || !wallet || pageLoading) return null;
 
   return (
     <div className="page-container">
-      <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '40px' }}>Xác thực thanh toán</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '40px' }}>
-        <div className="glass-card" style={{ padding: '32px' }}>
-          <h3 style={{ marginBottom: '24px', fontSize: '18px', fontWeight: 600 }}>🛡️ Xác thực {method}</h3>
-          <div style={{ marginBottom: '20px', color: 'var(--text-muted)' }}>
-            {method === 'Banking' ? (
-              <p>Vui lòng chọn tài khoản và nhập mã PIN ngân hàng để xác thực giao dịch.</p>
-            ) : (
-              <p>Vui lòng nhập số điện thoại ví MoMo và mã PIN bảo mật để xác thực.</p>
-            )}
+      <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 32 }}>Xác thực thanh toán demo</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(280px, 1fr)', gap: 32 }}>
+        <div className="glass-card" style={{ padding: 32 }}>
+          <div style={{ padding: 16, borderRadius: 16, background: 'rgba(56, 189, 248, 0.08)', marginBottom: 24 }}>
+            <strong>{method === 'Banking' ? '🏦 Banking demo' : '💗 MoMo demo'}</strong>
+            <p style={{ margin: '6px 0 0', color: 'var(--text-muted)' }}>Không kết nối cổng thanh toán thật. Giao dịch trừ trực tiếp số dư demo trong tài khoản của bạn.</p>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-            <button type="button" onClick={() => router.push('/checkout/payment/simulator')} className="btn-secondary" style={{ padding: '10px 16px' }}>
-              Mở trang giả lập số dư
-            </button>
-            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Số dư được lưu trong trình duyệt.</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div><span style={{ color: 'var(--text-muted)' }}>Số dư khả dụng</span><div style={{ fontSize: 26, fontWeight: 800 }}>{formatPrice(Number(wallet.balance))}</div></div>
+            <Link href="/profile/bank" className="btn-secondary" style={{ textDecoration: 'none' }}>Nạp tiền / tạo PIN</Link>
           </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <p style={{ margin: 0, fontWeight: 600 }}>Thông tin thanh toán</p>
-            <p style={{ margin: '4px 0 0' }}>Tên: {checkoutData.customerName}</p>
-            <p style={{ margin: '4px 0 0' }}>Email: {checkoutData.customerEmail}</p>
-            <p style={{ margin: '4px 0 0' }}>SĐT: {checkoutData.customerPhone}</p>
-            <p style={{ margin: '4px 0 0' }}>Địa chỉ: {checkoutData.shippingAddress}</p>
-          </div>
+          {!wallet.hasPaymentPin && <p style={{ color: '#fb923c' }}>Bạn cần tạo PIN giao dịch ở trang Ngân hàng trước khi thanh toán.</p>}
 
           {method === 'Banking' ? (
-            <>
-              {banks.length === 0 ? (
-                <div style={{ padding: '20px', borderRadius: '16px', background: 'rgba(248, 113, 113, 0.1)', color: '#f97316' }}>
-                  Bạn chưa có tài khoản ngân hàng. Vui lòng thêm tài khoản trong mục Hồ sơ &gt; Ngân hàng.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-                  <label style={{ fontWeight: 600 }}>Chọn tài khoản ngân hàng</label>
-                  {banks.map(bank => (
-                    <label key={bank.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', borderRadius: '16px', border: selectedBank === bank.id ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-                      <input type="radio" name="bank" value={bank.id} checked={selectedBank === bank.id} onChange={() => setSelectedBank(bank.id)} />
-                      <span>{bank.bankName} • ****{bank.accountNumber.slice(-4)} • {bank.accountName}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-              <div style={{ marginBottom: '20px' }}>
-                <label className="input-label">Mã PIN ngân hàng</label>
-                <input className="input-field" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} placeholder="6 chữ số" maxLength={6} />
-              </div>
-              <div style={{ marginBottom: '24px', color: 'var(--text-muted)', fontSize: '14px' }}>
-                Số dư giả lập: {formatPrice(balances.Banking)}
-              </div>
-            </>
+            <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+              <label style={{ fontWeight: 700 }}>Chọn tài khoản</label>
+              {banks.length === 0 ? <p style={{ color: '#fb923c' }}>Chưa có tài khoản ngân hàng. <Link href="/profile/bank">Thêm tại đây</Link>.</p> : banks.map(bank => (
+                <label key={bank.id} style={{ padding: 14, borderRadius: 14, border: selectedBank === bank.id ? '1px solid var(--accent)' : '1px solid var(--border)', cursor: 'pointer' }}>
+                  <input type="radio" checked={selectedBank === bank.id} onChange={() => setSelectedBank(bank.id)} />{' '}
+                  {bank.bankName} •••• {bank.accountNumber.slice(-4)} — {bank.accountName}
+                </label>
+              ))}
+            </div>
           ) : (
-            <>
-              <div style={{ marginBottom: '20px' }}>
-                <label className="input-label">Số điện thoại MoMo</label>
-                <input className="input-field" value={momoPhone} onChange={e => setMomoPhone(e.target.value.replace(/\D/g, ''))} placeholder="09xxxxxxxx" />
-              </div>
-              <div style={{ marginBottom: '20px' }}>
-                <label className="input-label">Mã PIN ví MoMo</label>
-                <input className="input-field" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} placeholder="6 chữ số" maxLength={6} />
-              </div>
-              <div style={{ marginBottom: '24px', color: 'var(--text-muted)', fontSize: '14px' }}>
-                Số dư ví giả lập: {formatPrice(balances.MoMo)}
-              </div>
-            </>
+            <div style={{ marginBottom: 20 }}><label className="input-label">Số điện thoại MoMo</label><input className="input-field" inputMode="numeric" maxLength={10} value={momoPhone} onChange={e => setMomoPhone(e.target.value.replace(/\D/g, ''))} placeholder="09xxxxxxxx" /></div>
           )}
-
-          <button type="button" onClick={handlePayment} disabled={loading || (method === 'Banking' && banks.length === 0)} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ marginBottom: 24 }}><label className="input-label">PIN giao dịch chung</label><input className="input-field" type="password" inputMode="numeric" maxLength={6} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} placeholder="6 chữ số" /></div>
+          <button type="button" onClick={() => void handlePayment()} disabled={loading || !wallet.hasPaymentPin || (method === 'Banking' && banks.length === 0)} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 16 }}>
             {loading ? 'Đang xử lý...' : `Thanh toán ${formatPrice(total)}`}
           </button>
-          <button type="button" onClick={() => router.push('/checkout')} className="btn-secondary" style={{ marginTop: '12px', width: '100%', justifyContent: 'center', padding: '16px' }}>
-            Quay lại trang thanh toán
-          </button>
+          <button type="button" onClick={() => router.push('/checkout')} className="btn-secondary" style={{ marginTop: 12, width: '100%', justifyContent: 'center', padding: 16 }}>Quay lại</button>
         </div>
 
-        <div>
-          <div className="glass-card" style={{ padding: '24px' }}>
-            <h3 style={{ marginBottom: '20px', fontSize: '18px', fontWeight: 600 }}>Tóm tắt đơn hàng</h3>
-            {items.map(item => (
-              <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '14px' }}>
-                <span>{item.product.name} x {item.quantity}</span>
-                <span>{formatPrice(multiplyMoneyByQuantity(item.product.price, item.quantity))}</span>
-              </div>
-            ))}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '20px', paddingTop: '20px', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
-              <span>Tổng</span>
-              <span>{formatPrice(total)}</span>
-            </div>
-          </div>
+        <div className="glass-card" style={{ padding: 24, alignSelf: 'start' }}>
+          <h3 style={{ marginTop: 0 }}>Tóm tắt đơn hàng</h3>
+          {items.map(item => <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12, fontSize: 14 }}><span>{item.product.name} × {item.quantity}</span><span>{formatPrice(multiplyMoneyByQuantity(item.product.price, item.quantity))}</span></div>)}
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 20, fontWeight: 800, display: 'flex', justifyContent: 'space-between' }}><span>Tổng</span><span>{formatPrice(total)}</span></div>
         </div>
       </div>
     </div>

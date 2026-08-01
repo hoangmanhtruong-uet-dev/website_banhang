@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger';
 import { requestFingerprint } from '@/lib/idempotency';
 
 import { PaymentService } from '@/lib/services/payment.service';
+import { ORDER_STATUS, transitionOrderInTransaction } from '@/lib/services/order-state.service';
 const EVENT_STATUS = {
   'payment.succeeded': 'success',
   'payment.failed': 'failed',
@@ -71,7 +72,7 @@ export const POST = createHandler(async (req: NextRequest) => {
 
       const shouldMarkFailed = event.status === 'failed' && order.paymentStatus === 'pending';
       if (event.status === 'success') await PaymentService.recordWebhookSuccess(tx, { orderId: order.id, provider: event.provider, providerEventId: event.eventId });
-      else if (shouldMarkFailed) await tx.order.update({ where: { id: order.id }, data: { paymentStatus: 'failed' } });
+      else if (shouldMarkFailed) await transitionOrderInTransaction(tx, { orderId: order.id, targetStatus: ORDER_STATUS.PAYMENT_FAILED, actor: { type: 'PAYMENT_WEBHOOK', provider: event.provider }, reason: 'Payment provider reported failure', idempotencyKey: `webhook:${event.provider}:${event.eventId}:payment-failed` });
       const updatedOrder = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
 
       await tx.webhookEvent.update({ where: { id: inbox.id }, data: { status: 'COMPLETED', processedAt: new Date() } });

@@ -17,6 +17,8 @@ async function clean(): Promise<void> {
   await prisma.notificationDelivery.deleteMany();
   await prisma.processedOutboxEvent.deleteMany();
   await prisma.domainAuditLog.deleteMany();
+  await prisma.orderReturn.deleteMany();
+  await prisma.orderStatusTransition.deleteMany();
   await prisma.walletLedger.deleteMany();
   await prisma.outboxEvent.deleteMany();
   await prisma.inventoryReservation.deleteMany();
@@ -77,6 +79,16 @@ async function codOrder(quantity = 1, stock = 5) {
   return { owner, item, order };
 }
 
+async function succeededPayment(orderId: string) {
+  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+  if (!order.userId) throw new Error('Test order must have an owner');
+  const token = suffix();
+  return prisma.payment.create({ data: {
+    orderId, userId: order.userId, amount: order.total, status: 'SUCCEEDED', operation: `test-payment:${orderId}`,
+    idempotencyKey: `test-pay:${token}`, provider: 'integration-test', providerOutcome: 'SUCCEEDED', currency: order.currency,
+    providerIdempotencyKey: `test-provider:${token}`, providerTransactionId: `test-txn:${token}`,
+  } });
+}
 test('migration exposes reservation schema, bounded names, constraints, FKs, and indexed expiry plan', async () => {
   const columns = await prisma.$queryRaw<Array<{ name: string }>>`
     SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS
@@ -150,9 +162,10 @@ test('same idempotency key replays one order/reservation and changed payload con
 
 test('payment consumes once; duplicate payment transition cannot decrement twice', async () => {
   const { item, order } = await codOrder(2, 5);
+  const payment = await succeededPayment(order.id);
   const results = await Promise.all([
-    prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id)),
-    prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id)),
+    prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id, payment.id)),
+    prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id, payment.id)),
   ]);
   assert.deepEqual(new Set(results), new Set(['consumed', 'duplicate']));
   assert.deepEqual(await state(item.id), { stock: 3, reserved: 0 });
@@ -172,9 +185,10 @@ test('expiry sweep survives restart semantics and duplicate workers release only
 
 test('payment versus expiry permits exactly one ACTIVE transition', async () => {
   const { item, order } = await codOrder(1, 1);
+  const payment = await succeededPayment(order.id);
   await prisma.inventoryReservation.updateMany({ where: { orderId: order.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
   await Promise.all([
-    prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id)),
+    prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id, payment.id)),
     InventoryExpiryWorker.runBatch(),
   ]);
   const reservation = await prisma.inventoryReservation.findFirstOrThrow({ where: { orderId: order.id } });
@@ -188,13 +202,17 @@ test('payment versus expiry permits exactly one ACTIVE transition', async () => 
 
 test('payment versus cancel handles the reservation once and cancel is retry-safe', async () => {
   const { item, order } = await codOrder(1, 2);
-  await Promise.all([
-    prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id)),
+  const payment = await succeededPayment(order.id);
+  const race = await Promise.allSettled([
+    prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id, payment.id)),
     InventoryService.cancel(order.id),
   ]);
+  assert.ok(race.some((result) => result.status === 'fulfilled'));
   const reservation = await prisma.inventoryReservation.findFirstOrThrow({ where: { orderId: order.id } });
   assert.ok(new Set<InventoryReservationStatus>([InventoryReservationStatus.CONSUMED, InventoryReservationStatus.RELEASED]).has(reservation.status));
-  await InventoryService.cancel(order.id);
+  const racedOrder = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+  if (racedOrder.status === 'cancelled') await InventoryService.cancel(order.id);
+  else await assert.rejects(InventoryService.cancel(order.id));
   const finalState = await state(item.id);
   assert.equal(finalState.reserved, 0);
   assert.ok(finalState.stock === 1 || finalState.stock === 2);
@@ -204,7 +222,8 @@ test('payment after expiry is recorded as late review and does not consume stock
   const { item, order } = await codOrder(1, 2);
   await prisma.inventoryReservation.updateMany({ where: { orderId: order.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
   await InventoryExpiryWorker.runBatch();
-  const outcome = await prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id));
+  const payment = await succeededPayment(order.id);
+  const outcome = await prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id, payment.id));
   assert.equal(outcome, 'late');
   assert.deepEqual(await state(item.id), { stock: 2, reserved: 0 });
   const reviewed = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
@@ -251,7 +270,8 @@ test('reconciliation detects mismatch, dry-run preserves it, and safe repair res
 
 test('all persisted inventory values satisfy non-negative and reserved <= stock invariants', async () => {
   const { item, order } = await codOrder(2, 2);
-  await prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id));
+  const payment = await succeededPayment(order.id);
+  await prisma.$transaction((tx) => InventoryService.consumeForPayment(tx, order.id, payment.id));
   const invalid = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT COUNT(*) AS count FROM product WHERE stockQuantity < 0 OR reservedQuantity < 0 OR reservedQuantity > stockQuantity`;
   assert.equal(Number(invalid[0]?.count ?? 0), 0);

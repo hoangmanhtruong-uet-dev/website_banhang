@@ -9,6 +9,8 @@ import { OrderService, type CreateOrderInput } from '../src/lib/services/order.s
 import { PaymentService, RefundService } from '../src/lib/services/payment.service';
 import { POST as webhookPost } from '../src/app/api/webhook/route';
 import { Money } from '../src/lib/utils/money';
+import { InventoryService } from '../src/lib/services/inventory.service';
+import { ORDER_STATUS, OrderStateService } from '../src/lib/services/order-state.service';
 
 if (process.env.RUN_IDEMPOTENCY_INTEGRATION !== '1') {
   throw new Error('Integration tests require RUN_IDEMPOTENCY_INTEGRATION=1 and a dedicated *_test database.');
@@ -27,6 +29,8 @@ async function cleanDomainData() {
   await prisma.notificationDelivery.deleteMany();
   await prisma.processedOutboxEvent.deleteMany();
   await prisma.domainAuditLog.deleteMany();
+  await prisma.orderReturn.deleteMany();
+  await prisma.orderStatusTransition.deleteMany();
   await prisma.walletLedger.deleteMany();
   await prisma.outboxEvent.deleteMany();
   await prisma.inventoryReservation.deleteMany();
@@ -326,7 +330,7 @@ test('payment locking enforces one wallet charge, ownership/status guards, repla
   await assert.rejects(prisma.$transaction((tx) => PaymentService.create(tx, { orderId: order.id, userId: stranger.id, idempotencyKey: 'foreign' })));
 
   const cancelled = await createCodOrder(owner.id, product.id);
-  await prisma.order.update({ where: { id: cancelled.id }, data: { status: 'cancelled' } });
+  await InventoryService.cancel(cancelled.id, { type: 'CUSTOMER', userId: owner.id }, `cancel-fixture:${suffix()}`);
   await assert.rejects(prisma.$transaction((tx) => PaymentService.create(tx, { orderId: cancelled.id, userId: owner.id, idempotencyKey: 'cancelled' })));
   await assert.rejects(runPaymentConflict(owner.id, order.id, key, { orderId: `${order.id}:different` }));
 
@@ -414,9 +418,12 @@ test('webhook verifies timestamp.rawBody, dedupes events, rolls back failures, a
   assert.equal(duplicate.status, 200);
   assert.equal((await duplicate.json() as { duplicate: boolean }).duplicate, true);
   assert.equal(await prisma.webhookEvent.count({ where: { provider: event.provider, providerEventId: event.eventId } }), 1);
-  assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status, 'processing');
+  assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status, 'paid');
 
-  await prisma.order.update({ where: { id: order.id }, data: { status: 'delivered' } });
+  await OrderStateService.transition({ orderId: order.id, targetStatus: ORDER_STATUS.CONFIRMED, actor: { type: 'ADMIN', userId: user.id }, idempotencyKey: `fixture-confirm:${suffix()}` });
+  await OrderStateService.transition({ orderId: order.id, targetStatus: ORDER_STATUS.PACKING, actor: { type: 'ADMIN', userId: user.id }, idempotencyKey: `fixture-pack:${suffix()}` });
+  await OrderStateService.transition({ orderId: order.id, targetStatus: ORDER_STATUS.SHIPPING, actor: { type: 'ADMIN', userId: user.id }, metadata: { trackingNumber: 'WEBHOOK-REGRESSION' }, idempotencyKey: `fixture-ship:${suffix()}` });
+  await OrderStateService.transition({ orderId: order.id, targetStatus: ORDER_STATUS.DELIVERED, actor: { type: 'ADMIN', userId: user.id }, idempotencyKey: `fixture-deliver:${suffix()}` });
   const later = { ...event, eventId: `evt-${suffix()}` };
   assert.equal((await webhookPost(signedWebhookRequest(later))).status, 200);
   assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status, 'delivered');

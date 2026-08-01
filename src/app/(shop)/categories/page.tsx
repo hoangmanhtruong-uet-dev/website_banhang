@@ -1,115 +1,70 @@
 'use client';
+
 import Link from 'next/link';
-import { mockProducts, categories } from '@/lib/mockData';
+import { useEffect, useState } from 'react';
 
-const categoryIcons: Record<string, string> = {
-  'Thời trang': '👗',
-  'Công nghệ': '💻',
-  'Làm đẹp': '💄',
-  'Gia dụng': '🏠',
-};
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  _count?: { products: number };
+}
 
-const categoryColors: Record<string, string> = {
-  'Thời trang': 'rgba(236, 72, 153, 0.15)',
-  'Công nghệ': 'rgba(59, 130, 246, 0.15)',
-  'Làm đẹp': 'rgba(168, 85, 247, 0.15)',
-  'Gia dụng': 'rgba(34, 197, 94, 0.15)',
-};
-
-const categoryBorders: Record<string, string> = {
-  'Thời trang': 'rgba(236, 72, 153, 0.3)',
-  'Công nghệ': 'rgba(59, 130, 246, 0.3)',
-  'Làm đẹp': 'rgba(168, 85, 247, 0.3)',
-  'Gia dụng': 'rgba(34, 197, 94, 0.3)',
-};
+const categoryIcons = ['👗', '💻', '💄', '🏠', '📦'];
+const categoryColors = [
+  'rgba(236, 72, 153, 0.15)',
+  'rgba(59, 130, 246, 0.15)',
+  'rgba(168, 85, 247, 0.15)',
+  'rgba(34, 197, 94, 0.15)',
+  'rgba(245, 158, 11, 0.15)',
+];
 
 export default function CategoriesPage() {
-  const displayCategories = categories.filter(c => c !== 'Tất cả');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Không thể tải danh mục');
+        setCategories(Array.isArray(data) ? data : []);
+      })
+      .catch(caught => setError(caught instanceof Error ? caught.message : 'Không thể tải danh mục'))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="page-container" style={{ paddingTop: '80px', paddingBottom: '100px' }}>
       <div className="section-intro" style={{ textAlign: 'center', marginBottom: '60px' }}>
         <h1 style={{ fontSize: 'clamp(2.4rem, 5vw, 3.8rem)', fontWeight: 800, marginBottom: '16px', lineHeight: 1.1 }}>
-          Khám phá tất cả <span className="text-gradient">danh mục</span> của chúng tôi
+          Khám phá <span className="text-gradient">danh mục</span>
         </h1>
-        <p style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto', lineHeight: 1.8 }}>
-          Từ thời trang hiện đại đến công nghệ tiên tiến, tất cả những gì bạn cần đều có ở đây
+        <p style={{ fontSize: '1.05rem', color: 'var(--text-secondary)' }}>
+          Chọn danh mục để xem các sản phẩm đang có trong cửa hàng.
         </p>
       </div>
 
-      <div className="categories-showcase" style={{
-        display: 'grid',
-        gap: '28px',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        maxWidth: '1280px',
-        margin: '0 auto',
-      }}>
-        {displayCategories.map((cat, i) => {
-          const count = mockProducts.filter(p => p.category === cat).length;
-          const slug = cat.toLowerCase().replace(/\s+/g, '-');
-
-          return (
-            <Link
-              key={cat}
-              href={`/categories/${slug}`}
-              className="category-showcase-card"
-              style={{
-                animation: `fadeInUp 0.6s ease-out ${i * 0.1}s forwards`,
-                opacity: 0,
-              }}
-            >
-              <div style={{
-                background: categoryColors[cat] || 'rgba(255,255,255,0.05)',
-                border: `1.5px solid ${categoryBorders[cat] || 'rgba(255,255,255,0.1)'}`,
-                borderRadius: '24px',
-                padding: '48px 32px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                height: '100%',
-                justifyContent: 'space-between',
-                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}>
-                <div style={{ marginBottom: '24px' }}>
-                  <span style={{ fontSize: '64px', display: 'block', marginBottom: '20px' }}>
-                    {categoryIcons[cat] || '📦'}
-                  </span>
-                  <h3 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '12px' }}>
-                    {cat}
-                  </h3>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-                    {count} sản phẩm
-                  </p>
-                </div>
-
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  color: 'var(--accent)',
-                  fontWeight: 600,
-                  fontSize: '0.95rem',
-                }}>
-                  Xem chi tiết <span>→</span>
-                </div>
+      {loading ? (
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải danh mục...</p>
+      ) : error ? (
+        <p style={{ textAlign: 'center', color: '#ef4444' }}>{error}</p>
+      ) : (
+        <div className="categories-showcase" style={{ display: 'grid', gap: '28px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', maxWidth: '1280px', margin: '0 auto' }}>
+          {categories.map((category, index) => (
+            <Link key={category.id} href={`/categories/${encodeURIComponent(category.slug)}`} className="category-showcase-card">
+              <div style={{ background: categoryColors[index % categoryColors.length], border: '1px solid var(--border)', borderRadius: '24px', padding: '48px 32px', textAlign: 'center', height: '100%' }}>
+                <span style={{ fontSize: '64px', display: 'block', marginBottom: '20px' }}>{categoryIcons[index % categoryIcons.length]}</span>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '12px' }}>{category.name}</h2>
+                {category.description && <p style={{ color: 'var(--text-muted)', marginBottom: '12px' }}>{category.description}</p>}
+                <p style={{ color: 'var(--accent)', fontWeight: 600 }}>{category._count?.products ?? 0} sản phẩm →</p>
               </div>
             </Link>
-          );
-        })}
-      </div>
-
-      <style jsx>{`
-        .category-showcase-card {
-          text-decoration: none;
-          display: block;
-        }
-
-        .category-showcase-card:hover > div {
-          transform: translateY(-12px);
-          box-shadow: 0 32px 64px rgba(0, 0, 0, 0.3);
-        }
-      `}</style>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

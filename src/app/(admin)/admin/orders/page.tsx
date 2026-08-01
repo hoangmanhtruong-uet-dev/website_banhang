@@ -32,14 +32,14 @@ export default function AdminOrdersPage() {
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
       let trackingNumber = null;
-      if (newStatus === 'shipped') {
+      if (newStatus === 'shipping') {
         // Tự động tạo mã vận đơn form PR + 5 ký tự ngẫu nhiên từ ID
         trackingNumber = `PR${orderId.slice(-5).toUpperCase()}`;
       }
 
       const res = await fetch(`/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
         body: JSON.stringify({ status: newStatus, trackingNumber }),
       });
       if (res.ok) {
@@ -102,8 +102,9 @@ export default function AdminOrdersPage() {
                     }}
                   >
                     <option value="pending">CHỜ XỬ LÝ</option>
-                    <option value="processing">ĐANG CHUẨN BỊ</option>
-                    <option value="shipped">ĐANG GIAO</option>
+                    <option value="confirmed">ĐANG CHUẨN BỊ</option>
+                    <option value="packing">ĐANG ĐÓNG GÓI</option>
+                    <option value="shipping">ĐANG GIAO</option>
                     <option value="delivered">ĐÃ GIAO</option>
                     <option value="cancelled">ĐÃ HỦY</option>
                   </select>
