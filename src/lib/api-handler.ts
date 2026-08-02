@@ -45,7 +45,12 @@ function mapError(error: unknown): MappedError {
     return { status: error.statusCode, code: error.code, message: error.message, metadata: error.metadata };
   }
   if (error instanceof ZodError) {
-    return { status: 400, code: 'VALIDATION_ERROR', message: 'Dữ liệu không hợp lệ', metadata: error.errors };
+    return {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      message: error.errors[0]?.message || 'Dữ liệu không hợp lệ',
+      metadata: error.errors,
+    };
   }
   if (typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' && error.code.startsWith('P')) {
     return { status: 400, code: 'DATABASE_ERROR', message: 'Lỗi truy vấn dữ liệu' };

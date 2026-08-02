@@ -415,6 +415,22 @@ a { color: inherit; text-decoration: none; }
 .product-grid {
   display:grid; gap:24px;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  align-items:stretch;
+}
+.product-card { min-width:0; }
+.profile-layout {
+  display:grid;
+  grid-template-columns:minmax(240px, 280px) minmax(0, 1fr);
+  gap:24px;
+  align-items:start;
+}
+.profile-sidebar { width:100%; position:sticky; top:88px; }
+.bank-topup-form {
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  gap:10px;
+  margin-top:12px;
+  max-width:560px;
 }
 .stats-grid {
   display:grid; gap:20px;
@@ -519,4 +535,8 @@ select.input-field {
   .admin-sidebar { display:none; }
   .admin-content { margin-left:0; padding:16px; }
   .product-image { font-size:40px; }
+  .profile-layout { grid-template-columns:1fr; }
+  .profile-sidebar { position:static; }
+  .bank-topup-form { grid-template-columns:1fr; }
+  .bank-topup-form .btn-primary { justify-content:center; }
 }

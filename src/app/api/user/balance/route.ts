@@ -8,15 +8,18 @@ import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError, NotFoundError } from '@/lib/errors';
 import { requireIdempotencyKey } from '@/lib/idempotency';
 import { IdempotencyService } from '@/lib/services/idempotency.service';
-import { DEFAULT_CURRENCY, Money } from '@/lib/utils/money';
-import { moneyInputSchema } from '@/lib/validations';
+import { DEFAULT_CURRENCY, Money, parseMoneyInput } from '@/lib/utils/money';
+
 
 const topUpSchema = z.object({
-  amount: moneyInputSchema({ allowZero: false, field: 'amount' }),
-}).superRefine((data, ctx) => {
-  if (Money.compare(data.amount, '100000') < 0 || Money.compare(data.amount, '100000000') > 0) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Số tiền nạp phải từ 100.000₫ đến 100.000.000₫', path: ['amount'] });
-  }
+  amount: z.string()
+    .regex(/^(0|[1-9]\d*)$/, 'Số tiền nạp phải là số nguyên dương')
+    .refine((value) => {
+      if (!/^(0|[1-9]\d*)$/.test(value)) return false;
+      const amount = BigInt(value);
+      return amount >= 100000n && amount <= 100000000n;
+    }, 'Số tiền nạp phải từ 100.000 ₫ đến 100.000.000 ₫')
+    .transform((value) => parseMoneyInput(value, { allowZero: false, field: 'amount' })),
 });
 
 export const GET = createHandler(async () => {

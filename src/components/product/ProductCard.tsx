@@ -45,9 +45,9 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
   };
 
   return (
-    <Link href={`/products/${product.id}`} className="glass-card"
-      style={{ display:'block', overflow:'hidden' }}>
-      <div style={{ animation:`fadeInUp 0.6s ease-out ${index * 0.08}s forwards`, opacity:0 }}>
+    <Link href={`/products/${product.id}`} className="glass-card product-card"
+      style={{ display:'block', overflow:'hidden', height:'100%' }}>
+      <div style={{ animation:`fadeInUp 0.6s ease-out ${index * 0.08}s forwards`, opacity:0, display:'flex', flexDirection:'column', height:'100%' }}>
         <div className="product-image" style={{ background: product.gradient, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img
             src={image}
@@ -69,7 +69,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
             </span>
           )}
         </div>
-        <div style={{ padding:'16px' }}>
+        <div style={{ padding:'16px', display:'flex', flexDirection:'column', flex:'1 1 auto' }}>
           <p style={{ fontSize:'12px', color:'var(--accent)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'6px' }}>
             {category}
           </p>
@@ -85,17 +85,17 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
             </div>
             <span style={{ fontSize:'12px', color:'var(--text-muted)' }}>({product.reviews})</span>
           </div>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <div>
-              <span style={{ fontSize:'17px', fontWeight:700, color:'var(--accent)' }}>{formatPrice(product.price)}</span>
+          <div style={{ display:'grid', gridTemplateColumns:'minmax(0, 1fr) 42px', alignItems:'center', gap:'12px', marginTop:'auto' }}>
+            <div style={{ minWidth:0, overflow:'hidden' }}>
+              <span style={{ display:'block', fontSize:'17px', fontWeight:700, color:'var(--accent)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{formatPrice(product.price)}</span>
               {hasDiscount && product.originalPrice && (
-                <span style={{ fontSize:'13px', color:'var(--text-muted)', textDecoration:'line-through', marginLeft:'8px' }}>
+                <span style={{ display:'block', fontSize:'12px', color:'var(--text-muted)', textDecoration:'line-through', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                   {formatPrice(product.originalPrice)}
                 </span>
               )}
             </div>
             <button onClick={handleAdd} disabled={isLoading || availableStock <= 0} aria-label={isAuthenticated ? 'Add to cart' : 'Login to add to cart'} style={{
-              width:'36px', height:'36px', borderRadius:'50%',
+              width:'42px', minWidth:'42px', height:'42px', borderRadius:'50%',
               background: added ? 'var(--success)' : 'var(--accent-gradient)',
               border:'none', cursor: availableStock > 0 ? 'pointer' : 'not-allowed', display:'flex',
               alignItems:'center', justifyContent:'center',

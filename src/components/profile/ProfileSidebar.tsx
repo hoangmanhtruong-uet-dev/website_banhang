@@ -45,7 +45,7 @@ export default function ProfileSidebar() {
   };
 
   return (
-    <div className="glass-card" style={{ width: '300px', padding: '30px 20px', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div className="glass-card profile-sidebar" style={{ padding: '30px 20px', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       {/* Centered User Header */}
       <div style={{ textAlign: 'center', marginBottom: '30px', width: '100%' }}>
         <div style={{ 

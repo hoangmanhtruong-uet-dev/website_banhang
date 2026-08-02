@@ -27,6 +27,16 @@ function apiMessage(data: unknown, fallback: string) {
   return fallback;
 }
 
+const MIN_TOP_UP = 100000n;
+const MAX_TOP_UP = 100000000n;
+
+function validateTopUpAmount(value: string) {
+  if (!/^(0|[1-9]\d*)$/.test(value)) return 'Vui lòng nhập số tiền hợp lệ';
+  const amount = BigInt(value);
+  if (amount < MIN_TOP_UP || amount > MAX_TOP_UP) return 'Số tiền nạp phải từ 100.000 ₫ đến 100.000.000 ₫';
+  return null;
+}
+
 export default function BankPage() {
   const addToast = useToastStore(s => s.addToast);
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
@@ -35,6 +45,7 @@ export default function BankPage() {
   const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('1000000');
+  const topUpError = validateTopUpAmount(topUpAmount);
   const [pinForm, setPinForm] = useState({ currentPassword: '', pin: '' });
   const [bankForm, setBankForm] = useState({ bankName: '', accountNumber: '', accountName: '', isDefault: false });
 
@@ -58,6 +69,11 @@ export default function BankPage() {
   useEffect(() => { void reload(); }, [reload]);
 
   const handleTopUp = async (amount = topUpAmount) => {
+    const validationError = validateTopUpAmount(amount);
+    if (validationError) {
+      addToast(validationError);
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch('/api/user/balance', {
@@ -136,9 +152,20 @@ export default function BankPage() {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 12, maxWidth: 480 }}>
-          <input className="input-field" inputMode="numeric" value={topUpAmount} onChange={e => setTopUpAmount(e.target.value.replace(/\D/g, ''))} placeholder="Từ 100.000 đến 100.000.000" />
-          <button type="button" className="btn-primary" disabled={busy} onClick={() => void handleTopUp()}>Nạp demo</button>
+        <div className="bank-topup-form">
+          <div>
+            <input
+              className="input-field"
+              inputMode="numeric"
+              maxLength={9}
+              aria-invalid={Boolean(topUpError)}
+              value={topUpAmount}
+              onChange={e => setTopUpAmount(e.target.value.replace(/\D/g, ''))}
+              placeholder="Từ 100.000 đến 100.000.000"
+            />
+            {topUpError && <p className="input-error">{topUpError}</p>}
+          </div>
+          <button type="button" className="btn-primary" disabled={busy || Boolean(topUpError)} onClick={() => void handleTopUp()}>Nạp demo</button>
         </div>
       </section>
 
