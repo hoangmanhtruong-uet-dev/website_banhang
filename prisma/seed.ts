@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedVouchers } from './seed-vouchers';
+import { realisticOriginalPrice, realisticProductPrice } from './product-pricing';
 
 const prisma = new PrismaClient();
 
@@ -139,13 +140,13 @@ function generateProducts() {
   for (let i = 0; i < 200; i++) {
     const nameIndex = i % productNames.length;
     const categoryIndex = i % categories.length;
-    const price = Math.floor(Math.random() * (30000000 - 100000) + 100000) * 1000;
+    const price = realisticProductPrice(productNames[nameIndex], i);
     const hasDiscount = Math.random() > 0.4;
     
     newProducts.push({
       name: `${productNames[nameIndex]} ${i + 1}`,
       price: price,
-      originalPrice: hasDiscount ? price + Math.floor(Math.random() * 10000000 * 100) / 100 : null,
+      originalPrice: realisticOriginalPrice(price, hasDiscount, i),
       description: descriptions[Math.floor(Math.random() * descriptions.length)],
       category: categories[categoryIndex],
       rating: parseFloat((Math.random() * 2 + 3).toFixed(1)), // 3.0 - 5.0

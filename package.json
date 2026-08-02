@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-products": "tsx prisma/seed-products.ts",
+    "db:reset-product-prices": "tsx scripts/reset-product-prices.ts --apply",
     "db:seed-vouchers": "tsx prisma/seed-vouchers.ts",
     "db:reset": "prisma migrate reset --force && tsx prisma/seed.ts",
     "idempotency:cleanup": "tsx scripts/cleanup-idempotency.ts",
