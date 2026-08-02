@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "tsx scripts/start-all.ts",
+    "start:web": "next start",
     "lint": "next lint",
     "test": "tsx --test tests/production-remediation.test.ts tests/idempotency.test.ts tests/fulfillment-p0.test.ts",
     "db:migrate": "prisma migrate dev",
