@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { v2 as cloudinary } from 'cloudinary';
 import { env } from '@/config/env';
 
 export interface StorageAdapter {
@@ -62,10 +63,53 @@ class S3StorageAdapter implements StorageAdapter {
   }
 }
 
+class CloudinaryStorageAdapter implements StorageAdapter {
+  constructor() {
+    if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+      throw new Error('Cloudinary storage requires CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET');
+    }
+    cloudinary.config({
+      cloud_name: env.CLOUDINARY_CLOUD_NAME,
+      api_key: env.CLOUDINARY_API_KEY,
+      api_secret: env.CLOUDINARY_API_SECRET,
+      secure: true,
+    });
+  }
+
+  async upload(file: Buffer, _filename: string, _mimeType: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream({
+        folder: env.CLOUDINARY_FOLDER,
+        resource_type: 'image',
+        unique_filename: true,
+        overwrite: false,
+      }, (error, result) => {
+        if (error || !result?.public_id) {
+          reject(error ?? new Error('Cloudinary upload returned no public id'));
+          return;
+        }
+        resolve(result.public_id);
+      });
+      stream.end(file);
+    });
+  }
+
+  async delete(key: string): Promise<void> {
+    await cloudinary.uploader.destroy(key, { resource_type: 'image', invalidate: true });
+  }
+
+  getUrl(key: string): string {
+    return cloudinary.url(key, { secure: true, fetch_format: 'auto', quality: 'auto' });
+  }
+}
+
+function createStorageAdapter(): StorageAdapter {
+  if (env.STORAGE_PROVIDER === 'cloudinary') return new CloudinaryStorageAdapter();
+  if (env.STORAGE_PROVIDER === 's3') return new S3StorageAdapter();
+  return new LocalStorageAdapter();
+}
 export class StorageService {
-  private static adapter: StorageAdapter = env.STORAGE_PROVIDER === 's3' 
-    ? new S3StorageAdapter() 
-    : new LocalStorageAdapter();
+  private static adapter: StorageAdapter = createStorageAdapter();
 
   static async upload(file: Buffer, filename: string, mimeType: string): Promise<string> {
     return this.adapter.upload(file, filename, mimeType);

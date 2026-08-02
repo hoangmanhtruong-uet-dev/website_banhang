@@ -6,7 +6,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
 
   // Storage
-  STORAGE_PROVIDER: z.enum(['local', 's3']).default('local'),
+  STORAGE_PROVIDER: z.enum(['local', 's3', 'cloudinary']).default('local'),
   UPLOAD_DIR: z.string().default('public/uploads'),
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
@@ -20,6 +20,7 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+  CLOUDINARY_FOLDER: z.string().default('mtruong-store'),
   
   // TTLs (in seconds or ms depending on usage, here we use strings for ms or numbers for seconds)
   ACCESS_TOKEN_TTL: z.string().default('15m'),

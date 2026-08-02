@@ -19,6 +19,7 @@ export default function ProfilePage() {
   });
 
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [fileInputEl, setFileInputEl] = useState<HTMLInputElement | null>(null);
 
   const openFilePicker = () => {
@@ -37,6 +38,7 @@ export default function ProfilePage() {
         avatar: user.avatar,
       });
       setAvatarPreview(null);
+      setAvatarLoadError(false);
     }
   }, [user]);
 
@@ -174,9 +176,9 @@ export default function ProfilePage() {
               }}
             >
               {avatarPreview ? (
-                <img src={avatarPreview} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-              ) : user?.avatar ? (
-                <img src={user.avatar} style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit: 'cover' }} />
+                <img src={avatarPreview} alt="Ảnh đại diện mới" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : user?.avatar && !avatarLoadError ? (
+                <img src={user.avatar} alt={user.name || 'Avatar'} onError={() => setAvatarLoadError(true)} style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit: 'cover' }} />
               ) : (
                 '👤'
               )}

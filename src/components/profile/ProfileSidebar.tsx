@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
 
@@ -21,6 +21,11 @@ export default function ProfileSidebar() {
   const user = useAuthStore(s => s.user);
   const fetchMe = useAuthStore(s => s.fetchMe);
   const addToast = useToastStore(s => s.addToast);
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar]);
 
   useEffect(() => {
     if (searchParams.get('needSeller') === '1') {
@@ -55,7 +60,9 @@ export default function ProfileSidebar() {
           fontSize: '48px', color: 'white', fontWeight: 800, margin: '0 auto 20px',
           boxShadow: '0 10px 25px rgba(245, 158, 11, 0.3)'
         }}>
-          {user?.avatar ? <img src={user.avatar} style={{ width:'100%', height:'100%', borderRadius:'50%' }} /> : (user?.name?.charAt(0) || 'T')}
+          {user?.avatar && !avatarError
+            ? <img src={user.avatar} alt={user.name || 'Avatar'} onError={() => setAvatarError(true)} style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover' }} />
+            : (user?.name?.charAt(0) || 'T')}
         </div>
         <h2 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 8px' }}>{user?.name}</h2>
         <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '0 0 15px' }}>{user?.email}</p>
