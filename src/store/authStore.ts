@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { clearCheckoutKey } from '@/lib/checkout-idempotency';
 import { useCartStore } from '@/store/cartStore';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 interface User {
   id: string;
@@ -31,7 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   fetchMe: async () => {
     try {
-      const res = await fetch('/api/auth/me');
+      const res = await authenticatedFetch('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
         useCartStore.getState().setOwner(data.user.id);

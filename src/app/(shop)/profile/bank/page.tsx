@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/utils';
 import { useToastStore } from '@/components/ui/Toast';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 interface BankInfo {
   id: string;
@@ -51,7 +52,10 @@ export default function BankPage() {
 
   const reload = useCallback(async () => {
     try {
-      const [balanceRes, bankRes] = await Promise.all([fetch('/api/user/balance'), fetch('/api/user/bank')]);
+      const [balanceRes, bankRes] = await Promise.all([
+        authenticatedFetch('/api/user/balance'),
+        authenticatedFetch('/api/user/bank'),
+      ]);
       if (balanceRes.status === 401 || bankRes.status === 401) {
         setAuthError(true);
         return;
@@ -76,7 +80,7 @@ export default function BankPage() {
     }
     setBusy(true);
     try {
-      const res = await fetch('/api/user/balance', {
+      const res = await authenticatedFetch('/api/user/balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
         body: JSON.stringify({ amount }),
@@ -96,7 +100,7 @@ export default function BankPage() {
     event.preventDefault();
     setBusy(true);
     try {
-      const res = await fetch('/api/user/payment-pin', {
+      const res = await authenticatedFetch('/api/user/payment-pin', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pinForm),
       });
       const data = await res.json();
@@ -115,7 +119,7 @@ export default function BankPage() {
     event.preventDefault();
     setBusy(true);
     try {
-      const res = await fetch('/api/user/bank', {
+      const res = await authenticatedFetch('/api/user/bank', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bankForm),
       });
       const data = await res.json();
