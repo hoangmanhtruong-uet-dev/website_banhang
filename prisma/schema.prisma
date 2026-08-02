@@ -106,6 +106,12 @@ model User {
   payments            Payment[]
   refunds             Refund[]
   walletLedgerEntries WalletLedger[]
+  sellerProfile       SellerProfile?
+  settlements         SellerSettlement[]
+  payoutRequests      PayoutRequest[]
+  inventoryMovements  InventoryMovement[]  @relation("InventoryMovementActor")
+  deliveryAttempts    DeliveryAttempt[]    @relation("DeliveryAttemptShipper")
+  codCollections      CodCollection[]      @relation("CodCollector")
 
   @@index([email])
   @@index([code])
@@ -202,6 +208,7 @@ model BankInfo {
 model Product {
   id                    String                 @id @default(cuid())
   code                  String                 @unique // PR001, PR002, etc
+  sku                   String?                @unique @db.VarChar(64)
   slug                  String                 @unique
   name                  String
   price                 Decimal                @db.Decimal(19, 4)
@@ -219,6 +226,7 @@ model Product {
   inStock               Boolean                @default(true)
   stockQuantity         Int                    @default(100)
   reservedQuantity      Int                    @default(0)
+  lowStockThreshold     Int                    @default(5)
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   deletedAt             DateTime?
@@ -229,6 +237,7 @@ model Product {
   seller                User?                  @relation("UserProducts", fields: [sellerId], references: [id])
   images                ProductImage[]
   inventoryReservations InventoryReservation[]
+  inventoryMovements    InventoryMovement[]
 
   @@index([sellerId])
   @@index([sellerId, deletedAt, createdAt], map: "product_seller_deleted_created_idx")
@@ -308,6 +317,7 @@ model Order {
   idempotencyKey        String?                 @db.VarChar(255)
   payment               Payment?
   inventoryReservations InventoryReservation[]
+  inventoryMovements    InventoryMovement[]
   outboxEvents          OutboxEvent[]
   statusTransitions     OrderStatusTransition[]
   returns               OrderReturn[]
@@ -341,33 +351,41 @@ model OrderStatusTransition {
 }
 
 model SellerFulfillment {
-  id                String                        @id @default(cuid())
-  orderId           String
-  order             Order                         @relation(fields: [orderId], references: [id], onDelete: Cascade, map: "seller_fulfillment_order_fk")
-  sellerId          String?
-  seller            User?                         @relation("SellerFulfillments", fields: [sellerId], references: [id], map: "seller_fulfillment_seller_fk")
-  sellerScope       String                        @db.VarChar(191)
-  shipperId         String?
-  shipper           User?                         @relation("ShipperFulfillments", fields: [shipperId], references: [id], map: "seller_fulfillment_shipper_fk")
-  status            String                        @default("pending") @db.VarChar(32)
-  statusVersion     Int                           @default(0)
-  subtotal          Decimal                       @default(0) @db.Decimal(19, 4)
-  discountAmount    Decimal                       @default(0) @db.Decimal(19, 4)
-  shippingFee       Decimal                       @default(0) @db.Decimal(19, 4)
-  taxAmount         Decimal                       @default(0) @db.Decimal(19, 4)
-  total             Decimal                       @default(0) @db.Decimal(19, 4)
-  currency          String                        @default("VND") @db.Char(3)
-  shippingProvider  String?
-  trackingNumber    String?
-  estimatedDelivery DateTime?
-  confirmedAt       DateTime?
-  packingStartedAt  DateTime?
-  shippedAt         DateTime?
-  deliveredAt       DateTime?
-  createdAt         DateTime                      @default(now())
-  updatedAt         DateTime                      @updatedAt
-  orderItems        OrderItem[]
-  transitions       SellerFulfillmentTransition[]
+  id                    String                        @id @default(cuid())
+  orderId               String
+  order                 Order                         @relation(fields: [orderId], references: [id], onDelete: Cascade, map: "seller_fulfillment_order_fk")
+  sellerId              String?
+  seller                User?                         @relation("SellerFulfillments", fields: [sellerId], references: [id], map: "seller_fulfillment_seller_fk")
+  sellerScope           String                        @db.VarChar(191)
+  shipperId             String?
+  shipper               User?                         @relation("ShipperFulfillments", fields: [shipperId], references: [id], map: "seller_fulfillment_shipper_fk")
+  status                String                        @default("pending") @db.VarChar(32)
+  statusVersion         Int                           @default(0)
+  subtotal              Decimal                       @default(0) @db.Decimal(19, 4)
+  discountAmount        Decimal                       @default(0) @db.Decimal(19, 4)
+  shippingFee           Decimal                       @default(0) @db.Decimal(19, 4)
+  taxAmount             Decimal                       @default(0) @db.Decimal(19, 4)
+  total                 Decimal                       @default(0) @db.Decimal(19, 4)
+  currency              String                        @default("VND") @db.Char(3)
+  shippingProvider      String?
+  trackingNumber        String?
+  estimatedDelivery     DateTime?
+  confirmedAt           DateTime?
+  packingStartedAt      DateTime?
+  shippedAt             DateTime?
+  deliveredAt           DateTime?
+  deliveryFailedAt      DateTime?
+  deliveryFailureReason String?                       @db.VarChar(500)
+  proofOfDeliveryUrl    String?
+  proofRecipientName    String?                       @db.VarChar(191)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  orderItems            OrderItem[]
+  transitions           SellerFulfillmentTransition[]
+  deliveryAttempts      DeliveryAttempt[]
+  codCollection         CodCollection?
+  settlement            SellerSettlement?
+  fulfillmentReturns    FulfillmentReturn[]
 
   @@unique([orderId, sellerScope], map: "seller_fulfillment_order_scope_key")
   @@index([sellerId, status], map: "seller_fulfillment_seller_status_idx")
@@ -481,6 +499,144 @@ model OutboxEvent {
   @@index([eventType, status], map: "outbox_type_status_idx")
   @@index([aggregateType, aggregateId], map: "outbox_event_aggregate_idx")
   @@map("outbox_event")
+}
+
+model SellerProfile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           String    @default("PENDING") @db.VarChar(32)
+  businessName     String    @db.VarChar(191)
+  taxCode          String?   @db.VarChar(64)
+  identityNumber   String?   @db.VarChar(64)
+  identityFrontUrl String?
+  identityBackUrl  String?
+  businessAddress  String    @db.VarChar(500)
+  commissionRate   Decimal   @default(5) @db.Decimal(7, 4)
+  submittedAt      DateTime  @default(now())
+  decidedAt        DateTime?
+  decidedBy        String?
+  rejectionReason  String?   @db.VarChar(500)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, submittedAt], map: "seller_profile_status_submitted_idx")
+  @@map("seller_profile")
+}
+
+model InventoryMovement {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  actorId        String?
+  actor          User?    @relation("InventoryMovementActor", fields: [actorId], references: [id])
+  type           String   @db.VarChar(32)
+  quantityDelta  Int
+  stockBefore    Int
+  stockAfter     Int
+  reason         String   @db.VarChar(500)
+  referenceType  String?  @db.VarChar(64)
+  referenceId    String?
+  idempotencyKey String   @unique @db.VarChar(191)
+  createdAt      DateTime @default(now())
+  Order          Order?   @relation(fields: [orderId], references: [id])
+  orderId        String?
+
+  @@index([productId, createdAt], map: "inventory_movement_product_created_idx")
+  @@map("inventory_movement")
+}
+
+model DeliveryAttempt {
+  id             String            @id @default(cuid())
+  fulfillmentId  String
+  fulfillment    SellerFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  shipperId      String
+  shipper        User              @relation("DeliveryAttemptShipper", fields: [shipperId], references: [id])
+  outcome        String            @db.VarChar(32)
+  proofUrl       String?
+  recipientName  String?           @db.VarChar(191)
+  note           String?           @db.VarChar(500)
+  latitude       Decimal?          @db.Decimal(10, 7)
+  longitude      Decimal?          @db.Decimal(10, 7)
+  idempotencyKey String            @unique @db.VarChar(191)
+  attemptedAt    DateTime          @default(now())
+
+  @@index([fulfillmentId, attemptedAt], map: "delivery_attempt_fulfillment_idx")
+  @@map("delivery_attempt")
+}
+
+model CodCollection {
+  id            String            @id @default(cuid())
+  fulfillmentId String            @unique
+  fulfillment   SellerFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  collectedById String
+  collectedBy   User              @relation("CodCollector", fields: [collectedById], references: [id])
+  amount        Decimal           @db.Decimal(19, 4)
+  currency      String            @default("VND") @db.Char(3)
+  status        String            @default("COLLECTED") @db.VarChar(32)
+  collectedAt   DateTime          @default(now())
+  remittedAt    DateTime?
+
+  @@index([status, collectedAt], map: "cod_collection_status_idx")
+  @@map("cod_collection")
+}
+
+model SellerSettlement {
+  id               String            @id @default(cuid())
+  fulfillmentId    String            @unique
+  fulfillment      SellerFulfillment @relation(fields: [fulfillmentId], references: [id])
+  sellerId         String
+  seller           User              @relation(fields: [sellerId], references: [id])
+  grossAmount      Decimal           @db.Decimal(19, 4)
+  commissionRate   Decimal           @db.Decimal(7, 4)
+  commissionAmount Decimal           @db.Decimal(19, 4)
+  netAmount        Decimal           @db.Decimal(19, 4)
+  currency         String            @default("VND") @db.Char(3)
+  status           String            @default("AVAILABLE") @db.VarChar(32)
+  availableAt      DateTime          @default(now())
+  paidAt           DateTime?
+  payoutRequestId  String?
+  payoutRequest    PayoutRequest?    @relation(fields: [payoutRequestId], references: [id])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([sellerId, status, availableAt], map: "seller_settlement_seller_status_idx")
+  @@map("seller_settlement")
+}
+
+model PayoutRequest {
+  id              String             @id @default(cuid())
+  sellerId        String
+  seller          User               @relation(fields: [sellerId], references: [id])
+  bankInfoId      String
+  amount          Decimal            @db.Decimal(19, 4)
+  currency        String             @default("VND") @db.Char(3)
+  status          String             @default("PENDING") @db.VarChar(32)
+  requestedAt     DateTime           @default(now())
+  processedAt     DateTime?
+  processedBy     String?
+  rejectionReason String?            @db.VarChar(500)
+  settlements     SellerSettlement[]
+
+  @@index([sellerId, status, requestedAt], map: "payout_request_seller_status_idx")
+  @@map("payout_request")
+}
+
+model FulfillmentReturn {
+  id             String            @id @default(cuid())
+  fulfillmentId  String
+  fulfillment    SellerFulfillment @relation(fields: [fulfillmentId], references: [id])
+  requesterId    String
+  status         String            @default("REQUESTED") @db.VarChar(32)
+  reason         String            @db.VarChar(500)
+  evidenceUrl    String?
+  requestedAt    DateTime          @default(now())
+  decidedAt      DateTime?
+  completedAt    DateTime?
+  idempotencyKey String            @unique @db.VarChar(191)
+
+  @@index([fulfillmentId, status], map: "fulfillment_return_status_idx")
+  @@map("fulfillment_return")
 }
 
 model SiteConfig {

@@ -125,6 +125,8 @@ export class InventoryService {
       if (changed.count !== 1) throw new ConflictError('Inventory invariant violation while consuming reservation');
       await tx.product.updateMany({ where: { id: entry.productId, stockQuantity: 0 }, data: { inStock: false } });
       await tx.inventoryReservation.update({ where: { id: entry.id }, data: { status: InventoryReservationStatus.CONSUMED, consumedAt: now } });
+      const stockAfter = (await tx.product.findUniqueOrThrow({ where: { id: entry.productId }, select: { stockQuantity: true } })).stockQuantity;
+      await tx.inventoryMovement.create({ data: { productId: entry.productId, actorId: null, type: 'SALE', quantityDelta: -entry.quantity, stockBefore: stockAfter + entry.quantity, stockAfter, reason: 'Consumed inventory reservation', referenceType: 'InventoryReservation', referenceId: entry.id, idempotencyKey: 'consume:' + entry.id } });
     }
     if (order.status === 'pending') {
       await transitionOrderInTransaction(tx, { orderId, targetStatus: ORDER_STATUS.PAID, actor, reason: 'Payment succeeded and inventory consumed', idempotencyKey: `order:${orderId}:paid:${paymentId ?? 'internal'}` });
@@ -165,6 +167,8 @@ export class InventoryService {
       if (changed.count !== 1) throw new ConflictError('Inventory invariant violation while consuming COD fulfillment');
       await tx.product.updateMany({ where: { id: entry.productId, stockQuantity: 0 }, data: { inStock: false } });
       await tx.inventoryReservation.update({ where: { id: entry.id }, data: { status: InventoryReservationStatus.CONSUMED, consumedAt: now } });
+      const stockAfter = (await tx.product.findUniqueOrThrow({ where: { id: entry.productId }, select: { stockQuantity: true } })).stockQuantity;
+      await tx.inventoryMovement.create({ data: { productId: entry.productId, actorId: null, type: 'SALE', quantityDelta: -entry.quantity, stockBefore: stockAfter + entry.quantity, stockAfter, reason: 'Consumed inventory reservation', referenceType: 'InventoryReservation', referenceId: entry.id, idempotencyKey: 'consume:' + entry.id } });
     }
     await enqueueOutboxEvent(tx, {
       eventType: OUTBOX_EVENT.INVENTORY_CONSUMED,

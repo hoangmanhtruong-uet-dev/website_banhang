@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     const code = await generateNextProductId();
     const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
     const product = await prisma.product.create({ data: {
-      code, slug, name: input.name, price: input.price, originalPrice: input.originalPrice ?? null,
+      code, sku: input.sku ?? `SKU-${code}`, slug, name: input.name, price: input.price, originalPrice: input.originalPrice ?? null,
       currency: input.currency, description: input.description, categoryId: input.categoryId,
       image: input.image ?? null, emoji: '📦', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       rating: 0, reviews: 0, inStock: true,

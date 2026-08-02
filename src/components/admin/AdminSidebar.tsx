@@ -8,6 +8,7 @@ const adminMenu = [
   { label: 'Quản Lý Kho Hàng', icon: '🏭', href: '/admin/inventory' },
   { label: 'Đơn Hàng & Vận Chuyển', icon: '📝', href: '/admin/orders' },
   { label: 'Khách Hàng & Phân Quyền', icon: '👥', href: '/admin/users' },
+  { label: 'Duyệt Seller & Payout', icon: '✅', href: '/admin/sellers' },
   { label: 'Marketing & Voucher', icon: '🎟️', href: '/admin/marketing' },
   { label: 'Báo Cáo Doanh Thu', icon: '📊', href: '/admin/analytics' },
   { label: 'Cấu Hình Hệ Thống', icon: '⚙️', href: '/admin/settings' },

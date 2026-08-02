@@ -74,3 +74,46 @@ test('admin role writes accept only the canonical role enum', () => {
   assert.match(roleRoute, /roleUpdateSchema\.parse/);
   assert.match(roleRoute, /activeAdmins <= 1/);
 });
+test('P1 seller onboarding requires KYC approval before enabling seller access', () => {
+  const schema = read('prisma/schema.prisma');
+  const registration = read('src/app/api/user/seller-register/route.ts');
+  const approval = read('src/app/api/admin/sellers/[id]/route.ts');
+  assert.match(schema, /model SellerProfile \{/);
+  assert.match(registration, /sellerKycSchema\.parse/);
+  assert.doesNotMatch(registration, /isSeller: true/);
+  assert.match(approval, /isSeller: approved/);
+});
+
+test('P1 inventory exposes SKU and writes an idempotent movement ledger', () => {
+  const schema = read('prisma/schema.prisma');
+  const inventory = read('src/app/api/seller/products/[id]/inventory/route.ts');
+  assert.match(schema, /sku\s+String\?/);
+  assert.match(schema, /model InventoryMovement \{/);
+  assert.match(inventory, /idempotency-key/);
+  assert.match(inventory, /inventoryMovement\.create/);
+});
+
+test('P1 delivered fulfillment creates commission settlement and COD collection', () => {
+  const service = read('src/lib/services/fulfillment.service.ts');
+  assert.match(service, /PROOF_OF_DELIVERY_REQUIRED/);
+  assert.match(service, /codCollection\.create/);
+  assert.match(service, /sellerSettlement\.create/);
+  assert.match(service, /commissionRate/);
+});
+
+test('P1 delivery failure and fulfillment return are explicit auditable flows', () => {
+  const service = read('src/lib/services/fulfillment.service.ts');
+  const shipper = read('src/app/api/shipper/orders/[id]/route.ts');
+  const returns = read('src/app/api/orders/[id]/fulfillments/[fulfillmentId]/returns/route.ts');
+  assert.match(service, /shipping->delivery_failed/);
+  assert.match(service, /deliveryAttempt\.create/);
+  assert.match(shipper, /'FAILED'/);
+  assert.match(returns, /fulfillmentReturn\.create/);
+});
+
+test('P1 payout atomically claims only available seller settlements', () => {
+  const finance = read('src/app/api/seller/finance/route.ts');
+  assert.match(finance, /sellerId: session\.userId, status: 'AVAILABLE'/);
+  assert.match(finance, /status: 'PROCESSING'/);
+  assert.match(finance, /claimed\.count !== settlements\.length/);
+});

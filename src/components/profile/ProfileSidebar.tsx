@@ -19,7 +19,6 @@ export default function ProfileSidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const user = useAuthStore(s => s.user);
-  const fetchMe = useAuthStore(s => s.fetchMe);
   const addToast = useToastStore(s => s.addToast);
   const [avatarError, setAvatarError] = useState(false);
 
@@ -33,21 +32,7 @@ export default function ProfileSidebar() {
     }
   }, [searchParams, addToast]);
 
-  const handleRegisterSeller = async () => {
-    try {
-      const res = await fetch('/api/user/seller-register', { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        addToast('Chúc mừng! Bạn đã trở thành người bán hàng! 🚀');
-        await fetchMe();
-        window.location.href = '/seller';
-      } else {
-        addToast(data.error || 'Không thể đăng ký người bán.');
-      }
-    } catch {
-      addToast('Lỗi khi đăng ký.');
-    }
-  };
+  const handleRegisterSeller = () => { window.location.href = '/profile/seller-register'; };
 
   return (
     <div className="glass-card profile-sidebar" style={{ padding: '30px 20px', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

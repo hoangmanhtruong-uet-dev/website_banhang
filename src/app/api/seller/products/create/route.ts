@@ -17,10 +17,12 @@ export async function POST(req: Request) {
     const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
     const imageUrls = Array.isArray(raw.images) ? raw.images.filter((url): url is string => typeof url === 'string') : [];
     const product = await prisma.product.create({ data: {
-      code, slug, name: input.name, price: input.price, originalPrice: input.originalPrice ?? null,
+      code, sku: input.sku ?? `SKU-${code}`, slug, name: input.name, price: input.price, originalPrice: input.originalPrice ?? null,
       currency: input.currency, description: input.description, categoryId: input.categoryId,
       emoji: typeof raw.emoji === 'string' ? raw.emoji : '📦', badge: typeof raw.badge === 'string' ? raw.badge : null,
-      inStock: typeof raw.inStock === 'boolean' ? raw.inStock : true, sellerId: session.userId,
+      stockQuantity: typeof raw.stockQuantity === 'number' && Number.isInteger(raw.stockQuantity) && raw.stockQuantity >= 0 ? raw.stockQuantity : 0,
+      lowStockThreshold: input.lowStockThreshold ?? 5,
+      inStock: typeof raw.stockQuantity === 'number' ? raw.stockQuantity > 0 : (typeof raw.inStock === 'boolean' ? raw.inStock : false), sellerId: session.userId,
       rating: 5, reviews: 0, image: imageUrls[0] ?? input.image ?? null,
       images: { create: imageUrls.map((url) => ({ url })) },
     }, include: { images: true } });

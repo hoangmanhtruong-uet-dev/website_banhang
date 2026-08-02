@@ -1,0 +1,2 @@
+import { type NextRequest } from 'next/server';import prisma from '@/lib/db';import { requireAdmin } from '@/lib/auth';import { createHandler } from '@/lib/api-handler';
+export async function GET(req:NextRequest){return createHandler(async()=>{await requireAdmin();return prisma.payoutRequest.findMany({include:{seller:{select:{id:true,name:true,email:true}},settlements:{select:{id:true,netAmount:true}}},orderBy:{requestedAt:'desc'},take:100});})(req);}

@@ -6,7 +6,13 @@ import { AuthorizationError, ValidationError } from '@/lib/errors';
 import { FulfillmentService } from '@/lib/services/fulfillment.service';
 
 const bodySchema = z.object({
-  status: z.enum(['SHIPPING', 'DELIVERED']),
+  status: z.enum(['SHIPPING', 'DELIVERED', 'FAILED']),
+  proofUrl: z.string().url().optional(),
+  recipientName: z.string().trim().min(2).max(191).optional(),
+  codCollected: z.boolean().optional(),
+  codAmount: z.string().regex(/^\\d+(?:\\.\\d{1,4})?$/).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   trackingNumber: z.string().trim().min(1).max(191).optional(),
   shippingProvider: z.string().trim().min(1).max(191).optional(),
   estimatedDelivery: z.string().datetime().optional(),
@@ -22,7 +28,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (!key) throw new ValidationError('Idempotency-Key header is required');
     const { id } = await context.params;
     const input = bodySchema.parse(await request.json());
-    const targetStatus = input.status === 'DELIVERED' ? 'delivered' : 'shipping';
+    const targetStatus = input.status === 'DELIVERED' ? 'delivered' : input.status === 'FAILED' ? 'delivery_failed' : 'shipping';
     return FulfillmentService.transition({
       fulfillmentId: id,
       targetStatus,
@@ -33,6 +39,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         ...(input.shippingProvider ? { shippingProvider: input.shippingProvider } : {}),
         ...(input.estimatedDelivery ? { estimatedDelivery: input.estimatedDelivery } : {}),
         ...(input.assignSelf ? { assignSelf: true } : {}),
+        ...(input.proofUrl ? { proofUrl: input.proofUrl } : {}),
+        ...(input.recipientName ? { recipientName: input.recipientName } : {}),
+        ...(input.codCollected ? { codCollected: true, codAmount: input.codAmount } : {}),
+        ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
+        ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
       },
       idempotencyKey: key,
     });

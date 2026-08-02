@@ -179,7 +179,7 @@ const fulfillmentProjectionOrder: Readonly<Record<string, number>> = Object.free
 function projectedOrderStatus(statuses: readonly string[]): OrderStatus | null {
   if (statuses.length === 0) return null;
   if (statuses.every((status) => status === 'delivered')) return ORDER_STATUS.DELIVERED;
-  if (statuses.some((status) => status === 'shipping' || status === 'delivered')) return ORDER_STATUS.SHIPPING;
+  if (statuses.some((status) => status === 'shipping' || status === 'delivered' || status === 'delivery_failed')) return ORDER_STATUS.SHIPPING;
   if (statuses.some((status) => status === 'packing')) return ORDER_STATUS.PACKING;
   if (statuses.some((status) => status === 'confirmed')) return ORDER_STATUS.CONFIRMED;
   if (statuses.every((status) => status === 'paid')) return ORDER_STATUS.PAID;

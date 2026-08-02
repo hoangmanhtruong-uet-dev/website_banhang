@@ -11,6 +11,9 @@ export default function NewProductPage() {
 
   const [formData, setFormData] = useState({
     name: '',
+    sku: '',
+    stockQuantity: '0',
+    lowStockThreshold: '5',
     price: '',
     originalPrice: '',
     description: '',
@@ -71,6 +74,9 @@ export default function NewProductPage() {
           price: formData.price,
           originalPrice: formData.originalPrice || null,
           images: images,
+          sku: formData.sku || undefined,
+          stockQuantity: Number(formData.stockQuantity),
+          lowStockThreshold: Number(formData.lowStockThreshold),
         }),
       });
 
@@ -106,6 +112,11 @@ export default function NewProductPage() {
             </div>
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
+            <div><label className="input-label">SKU</label><input className="input-field" value={formData.sku} onChange={e=>setFormData({...formData,sku:e.target.value})} placeholder="Để trống để tự tạo" /></div>
+            <div><label className="input-label">Tồn kho</label><input required type="number" min="0" className="input-field" value={formData.stockQuantity} onChange={e=>setFormData({...formData,stockQuantity:e.target.value})} /></div>
+            <div><label className="input-label">Cảnh báo thấp</label><input required type="number" min="0" className="input-field" value={formData.lowStockThreshold} onChange={e=>setFormData({...formData,lowStockThreshold:e.target.value})} /></div>
+          </div>
           <div style={{ display: 'flex', gap: '20px' }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--text-muted)' }}>Giá bán (VNĐ)</label>

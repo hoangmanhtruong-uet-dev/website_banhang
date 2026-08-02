@@ -13,7 +13,7 @@ export async function GET() {
     const fulfillments = await prisma.sellerFulfillment.findMany({
       where: { OR: [
         { status: 'packing', shipperId: null },
-        { shipperId: session.userId, status: { in: ['packing', 'shipping', 'delivered'] } },
+        { shipperId: session.userId, status: { in: ['packing', 'shipping', 'delivery_failed', 'delivered'] } },
       ] },
       include: {
         order: { select: {

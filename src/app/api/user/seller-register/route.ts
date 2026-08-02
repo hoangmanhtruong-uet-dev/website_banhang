@@ -1,57 +1,29 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import prisma from '@/lib/db';
 import { getSession } from '@/lib/auth';
-import { AuthService } from '@/lib/services/auth.service';
+import { createHandler } from '@/lib/api-handler';
+import { AuthenticationError, ConflictError } from '@/lib/errors';
+import { sellerKycSchema } from '@/lib/validations';
 
-export async function POST() {
-  try {
+export async function GET(req: NextRequest) {
+  return createHandler(async () => {
     const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) throw new AuthenticationError();
+    return prisma.sellerProfile.findUnique({ where: { userId: session.userId } });
+  })(req);
+}
 
-    const user = await prisma.user.update({
-      where: { id: session.userId },
-      data: { isSeller: true },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isSeller: true,
-      },
+export async function POST(req: NextRequest) {
+  return createHandler(async request => {
+    const session = await getSession();
+    if (!session) throw new AuthenticationError();
+    const input = sellerKycSchema.parse(await request.json());
+    const existing = await prisma.sellerProfile.findUnique({ where: { userId: session.userId } });
+    if (existing?.status === 'APPROVED') throw new ConflictError('Seller đã được phê duyệt');
+    return prisma.sellerProfile.upsert({
+      where: { userId: session.userId },
+      create: { userId: session.userId, ...input, status: 'PENDING' },
+      update: { ...input, status: 'PENDING', submittedAt: new Date(), decidedAt: null, decidedBy: null, rejectionReason: null },
     });
-
-    const token = await AuthService.signAccessToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      isSeller: user.isSeller,
-      name: user.name,
-    });
-
-    const response = NextResponse.json({
-      message: 'Đăng ký bán hàng thành công',
-      user,
-    });
-
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/',
-    });
-
-    response.cookies.set('user-role', user.role, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/',
-    });
-
-    return response;
-  } catch (error) {
-    console.error('[SELLER_REGISTER]', error);
-    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
-  }
+  })(req);
 }

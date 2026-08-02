@@ -6,7 +6,7 @@ import { useToastStore } from '@/components/ui/Toast';
 
 interface ShipperFulfillment {
   id: string;
-  status: 'packing' | 'shipping' | 'delivered';
+  status: 'packing' | 'shipping' | 'delivery_failed' | 'delivered';
   assignment: 'available' | 'mine';
   total: string;
   trackingNumber?: string | null;
@@ -32,7 +32,7 @@ interface ShipperFulfillment {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  packing: 'Sẵn sàng lấy hàng', shipping: 'Đang giao', delivered: 'Đã giao',
+  packing: 'Sẵn sàng lấy hàng', shipping: 'Đang giao', delivery_failed: 'Giao thất bại', delivered: 'Đã giao',
 };
 
 export default function ShipperOrdersPage() {
@@ -63,7 +63,21 @@ export default function ShipperOrdersPage() {
 
   useEffect(() => { void fetchFulfillments(); }, [fetchFulfillments]);
 
-  const transition = async (fulfillment: ShipperFulfillment, status: 'SHIPPING' | 'DELIVERED', assignSelf = false) => {
+  const transition = async (fulfillment: ShipperFulfillment, status: 'SHIPPING' | 'DELIVERED' | 'FAILED', assignSelf = false) => {
+    const deliveryData: Record<string, unknown> = {};
+    if (status === 'DELIVERED') {
+      const recipientName = window.prompt('Tên người nhận hàng:')?.trim();
+      const proofUrl = window.prompt('URL ảnh proof of delivery (Cloudinary):')?.trim();
+      if (!recipientName || !proofUrl) return addToast('Cần tên người nhận và ảnh proof', 'error');
+      Object.assign(deliveryData, { recipientName, proofUrl });
+      if (fulfillment.order.paymentMethod === 'COD') Object.assign(deliveryData, { codCollected: true, codAmount: fulfillment.total });
+    }
+    if (status === 'FAILED') {
+      const reason = window.prompt('Lý do giao thất bại:')?.trim();
+      const proofUrl = window.prompt('URL ảnh bằng chứng (không bắt buộc):')?.trim();
+      if (!reason) return addToast('Cần nhập lý do giao thất bại', 'error');
+      Object.assign(deliveryData, { reason, ...(proofUrl ? { proofUrl } : {}) });
+    }
     setSaving(true);
     try {
       const response = await fetch(`/api/shipper/orders/${fulfillment.id}`, {
@@ -74,6 +88,7 @@ export default function ShipperOrdersPage() {
           ...(trackingNumber.trim() ? { trackingNumber: trackingNumber.trim() } : {}),
           ...(shippingProvider.trim() ? { shippingProvider: shippingProvider.trim() } : {}),
           ...(estimatedDelivery ? { estimatedDelivery: new Date(`${estimatedDelivery}T12:00:00+07:00`).toISOString() } : {}),
+          ...deliveryData,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -81,7 +96,7 @@ export default function ShipperOrdersPage() {
         const message = typeof data.error === 'string' ? data.error : data.error?.message;
         throw new Error(message || 'Không thể cập nhật kiện hàng');
       }
-      addToast(status === 'DELIVERED' ? 'Đã xác nhận giao hàng thành công' : 'Đã nhận kiện và bắt đầu giao');
+      addToast(status === 'DELIVERED' ? 'Đã xác nhận giao hàng thành công' : status === 'FAILED' ? 'Đã ghi nhận giao thất bại' : 'Đã nhận kiện và bắt đầu giao');
       setSelected(null);
       setTrackingNumber('');
       setEstimatedDelivery('');
@@ -150,6 +165,8 @@ export default function ShipperOrdersPage() {
                   <strong style={{ color: 'var(--accent)' }}>{formatPrice(fulfillment.total)}</strong>
                   {fulfillment.assignment === 'available' && fulfillment.status === 'packing' && <button className="btn-primary" onClick={() => openAccept(fulfillment)}>Nhận kiện</button>}
                   {fulfillment.assignment === 'mine' && fulfillment.status === 'shipping' && <button className="btn-primary" disabled={saving} onClick={() => void transition(fulfillment, 'DELIVERED')}>Đã giao hàng</button>}
+                  {fulfillment.assignment === 'mine' && fulfillment.status === 'shipping' && <button className="btn-secondary" disabled={saving} onClick={() => void transition(fulfillment, 'FAILED')}>Giao thất bại</button>}
+                  {fulfillment.assignment === 'mine' && fulfillment.status === 'delivery_failed' && <button className="btn-primary" disabled={saving} onClick={() => void transition(fulfillment, 'SHIPPING')}>Giao lại</button>}
                 </div>
               </div>
             </div>

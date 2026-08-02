@@ -1,0 +1,13 @@
+'use client';
+import { useCallback, useEffect, useState } from 'react';
+import { formatPrice } from '@/lib/utils';
+import { useToastStore } from '@/components/ui/Toast';
+type Data={availableBalance:string;settlements:Array<{id:string;grossAmount:string;commissionAmount:string;netAmount:string;status:string;availableAt:string;fulfillment:{orderId:string}}>;payouts:Array<{id:string;amount:string;status:string;requestedAt:string}>};
+type Bank={id:string;bankName:string;accountNumber:string};
+export default function FinancePage(){
+ const [data,setData]=useState<Data|null>(null);const [banks,setBanks]=useState<Bank[]>([]);const [bankId,setBankId]=useState('');const toast=useToastStore(s=>s.addToast);
+ const load=useCallback(async()=>{const [f,b]=await Promise.all([fetch('/api/seller/finance').then(r=>r.json()),fetch('/api/user/bank').then(r=>r.json())]);setData(f);setBanks(Array.isArray(b)?b:[]);setBankId(v=>v||b?.[0]?.id||'');},[]);useEffect(()=>{void load()},[load]);
+ async function payout(){const r=await fetch('/api/seller/finance',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({bankInfoId:bankId})});const b=await r.json();if(!r.ok){toast(b.error?.message??b.error??'Không thể tạo payout','error');return}toast('Đã gửi yêu cầu rút tiền');void load()}
+ if(!data)return <div>Đang tải...</div>;
+ return <div><h1>Tài chính và Đối soát</h1><div className="glass-card" style={{padding:24,margin:'20px 0'}}><small>Số dư khả dụng</small><h2 style={{color:'var(--accent)'}}>{formatPrice(data.availableBalance)}</h2><div style={{display:'flex',gap:10}}><select className="input-field" value={bankId} onChange={e=>setBankId(e.target.value)}>{banks.map(b=><option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>)}</select><button className="btn-primary" disabled={!bankId||Number(data.availableBalance)<=0} onClick={()=>void payout()}>Yêu cầu rút</button></div></div><div className="glass-card" style={{padding:24}}><h3>Settlement</h3>{data.settlements.map(s=><div key={s.id} style={{display:'grid',gridTemplateColumns:'2fr repeat(4,1fr)',gap:10,padding:'12px 0',borderBottom:'1px solid var(--border)'}}><span>Đơn {s.fulfillment.orderId.slice(-8)}</span><span>Gross {formatPrice(s.grossAmount)}</span><span>Phí {formatPrice(s.commissionAmount)}</span><b>Net {formatPrice(s.netAmount)}</b><span>{s.status}</span></div>)}</div><div className="glass-card" style={{padding:24,marginTop:20}}><h3>Payout</h3>{data.payouts.map(p=><p key={p.id}>{formatPrice(p.amount)} · {p.status} · {new Date(p.requestedAt).toLocaleDateString('vi-VN')}</p>)}</div></div>;
+}

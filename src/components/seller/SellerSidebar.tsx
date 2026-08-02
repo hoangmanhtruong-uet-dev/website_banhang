@@ -8,6 +8,7 @@ const sellerMenu = [
   { label: 'Quản Lý Đơn Hàng', icon: '📝', href: '/seller/orders' },
   { label: 'Khuyến Mãi', icon: '🎟️', href: '/seller/marketing' },
   { label: 'Phân Tích Bán Hàng', icon: '📉', href: '/seller/analytics' },
+  { label: 'Tài chính và Đối soát', icon: '💰', href: '/seller/finance' },
   { label: 'Hồ Sơ Shop', icon: '🏪', href: '/seller/shop-profile' },
   { label: 'Cài Đặt', icon: '⚙️', href: '/seller/settings' },
 ];

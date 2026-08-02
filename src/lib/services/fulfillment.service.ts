@@ -4,11 +4,12 @@ import prisma from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import type { TransactionClient } from '@/lib/services/idempotency.service';
 import { InventoryService } from '@/lib/services/inventory.service';
+import { Money } from '@/lib/utils/money';
 import { syncOrderFromFulfillmentsInTransaction, type OrderTransitionActor } from '@/lib/services/order-state.service';
 
 export const FULFILLMENT_STATUS = Object.freeze({
   PENDING: 'pending', PAID: 'paid', CONFIRMED: 'confirmed', PACKING: 'packing',
-  SHIPPING: 'shipping', DELIVERED: 'delivered', CANCELLED: 'cancelled',
+  SHIPPING: 'shipping', DELIVERED: 'delivered', DELIVERY_FAILED: 'delivery_failed', CANCELLED: 'cancelled',
 });
 
 export type FulfillmentActor =
@@ -18,7 +19,7 @@ export type FulfillmentActor =
 
 export interface TransitionFulfillmentInput {
   fulfillmentId: string;
-  targetStatus: 'confirmed' | 'packing' | 'shipping' | 'delivered';
+  targetStatus: 'confirmed' | 'packing' | 'shipping' | 'delivered' | 'delivery_failed';
   actor: FulfillmentActor;
   reason?: string;
   metadata?: Readonly<Record<string, unknown>>;
@@ -27,8 +28,8 @@ export interface TransitionFulfillmentInput {
 
 const allowedEdges: Readonly<Record<FulfillmentActor['type'], readonly string[]>> = Object.freeze({
   SELLER: ['paid->confirmed', 'confirmed->packing'],
-  SHIPPER: ['packing->shipping', 'shipping->delivered'],
-  ADMIN: ['paid->confirmed', 'confirmed->packing', 'packing->shipping', 'shipping->delivered'],
+  SHIPPER: ['packing->shipping', 'shipping->delivered', 'shipping->delivery_failed', 'delivery_failed->shipping'],
+  ADMIN: ['paid->confirmed', 'confirmed->packing', 'packing->shipping', 'shipping->delivered', 'shipping->delivery_failed', 'delivery_failed->shipping'],
 });
 
 function fulfillmentError(code: string, message: string, statusCode: number): AppError {
@@ -64,7 +65,16 @@ function transitionData(input: TransitionFulfillmentInput, now: Date): Prisma.Se
     if (typeof input.metadata?.estimatedDelivery === 'string') data.estimatedDelivery = new Date(input.metadata.estimatedDelivery);
     if (input.actor.type === 'SHIPPER' && input.metadata?.assignSelf === true) data.shipperId = input.actor.userId;
   }
-  if (input.targetStatus === 'delivered') data.deliveredAt = now;
+  if (input.targetStatus === 'delivered') {
+    data.deliveredAt = now;
+    if (typeof input.metadata?.proofUrl === 'string') data.proofOfDeliveryUrl = input.metadata.proofUrl;
+    if (typeof input.metadata?.recipientName === 'string') data.proofRecipientName = input.metadata.recipientName;
+    data.deliveryFailureReason = null;
+  }
+  if (input.targetStatus === 'delivery_failed') {
+    data.deliveryFailedAt = now;
+    data.deliveryFailureReason = input.reason?.trim();
+  }
   return data;
 }
 
@@ -95,6 +105,11 @@ async function transitionInTransaction(tx: TransactionClient, input: TransitionF
   if (input.targetStatus === 'shipping' && !fulfillment.trackingNumber && typeof input.metadata?.trackingNumber !== 'string') {
     throw fulfillmentError('TRACKING_REQUIRED', 'Tracking number is required before shipping', 422);
   }
+  if (input.targetStatus === 'delivered') {
+    if (typeof input.metadata?.proofUrl !== 'string' || typeof input.metadata?.recipientName !== 'string') throw fulfillmentError('PROOF_OF_DELIVERY_REQUIRED', 'Proof URL and recipient name are required', 422);
+    if (isCod && (input.metadata?.codCollected !== true || typeof input.metadata?.codAmount !== 'string' || Money.compare(input.metadata.codAmount, fulfillment.total) !== 0)) throw fulfillmentError('COD_COLLECTION_REQUIRED', 'COD amount must equal fulfillment total', 422);
+  }
+  if (input.targetStatus === 'delivery_failed' && (!input.reason || input.reason.trim().length < 3)) throw fulfillmentError('DELIVERY_FAILURE_REASON_REQUIRED', 'Delivery failure reason is required', 422);
 
   if (isCod && ['SELLER', 'ADMIN'].includes(input.actor.type) && input.targetStatus === 'confirmed') {
     await InventoryService.consumeForCodFulfillment(tx, fulfillment.id);
@@ -105,6 +120,34 @@ async function transitionInTransaction(tx: TransactionClient, input: TransitionF
     data: transitionData(input, now),
   });
   if (updated.count !== 1) throw fulfillmentError('FULFILLMENT_STATUS_CONFLICT', 'Fulfillment changed concurrently', 409);
+  if (input.actor.type === 'SHIPPER' && ['delivered', 'delivery_failed'].includes(input.targetStatus)) {
+    await tx.deliveryAttempt.create({ data: {
+      fulfillmentId: fulfillment.id, shipperId: input.actor.userId,
+      outcome: input.targetStatus === 'delivered' ? 'DELIVERED' : 'FAILED',
+      proofUrl: typeof input.metadata?.proofUrl === 'string' ? input.metadata.proofUrl : null,
+      recipientName: typeof input.metadata?.recipientName === 'string' ? input.metadata.recipientName : null,
+      note: input.reason?.trim(),
+      latitude: typeof input.metadata?.latitude === 'number' ? input.metadata.latitude : null,
+      longitude: typeof input.metadata?.longitude === 'number' ? input.metadata.longitude : null,
+      idempotencyKey: `attempt:${input.idempotencyKey}`,
+    } });
+  }
+  if (input.targetStatus === 'delivered' && isCod && input.actor.type === 'SHIPPER') {
+    await tx.codCollection.create({ data: { fulfillmentId: fulfillment.id, collectedById: input.actor.userId, amount: fulfillment.total, currency: fulfillment.currency } });
+  }
+  if (input.targetStatus === 'delivered' && fulfillment.sellerId) {
+    const profile = await tx.sellerProfile.findUnique({ where: { userId: fulfillment.sellerId } });
+    const rate = profile?.commissionRate ?? new Prisma.Decimal(5);
+    const commission = Money.round(Money.divide(Money.multiply(fulfillment.total, rate), '100'));
+    await tx.sellerSettlement.create({ data: {
+      fulfillmentId: fulfillment.id, sellerId: fulfillment.sellerId, grossAmount: fulfillment.total,
+      commissionRate: rate, commissionAmount: commission, netAmount: Money.round(Money.subtract(fulfillment.total, commission)), currency: fulfillment.currency,
+    } });
+  }
+  if (input.targetStatus === 'delivered' && isCod) {
+    const remaining = await tx.sellerFulfillment.count({ where: { orderId: fulfillment.orderId, id: { not: fulfillment.id }, status: { not: 'delivered' } } });
+    if (remaining === 0) await tx.order.update({ where: { id: fulfillment.orderId }, data: { paymentStatus: 'paid', paidAt: now } });
+  }
   const actorId = input.actor.userId;
   await tx.sellerFulfillmentTransition.create({ data: {
     fulfillmentId: fulfillment.id, fromStatus: fulfillment.status, toStatus: input.targetStatus,
@@ -134,13 +177,13 @@ export class FulfillmentService {
 
   static async transitionOrderFulfillments(input: {
     orderId: string;
-    targetStatus: TransitionFulfillmentInput['targetStatus'];
+    targetStatus: Exclude<TransitionFulfillmentInput['targetStatus'], 'delivery_failed'>;
     actor: Extract<FulfillmentActor, { type: 'ADMIN' }>;
     reason?: string;
     metadata?: Readonly<Record<string, unknown>>;
     idempotencyKey: string;
   }, client: PrismaClient = prisma) {
-    const previousByTarget: Readonly<Record<TransitionFulfillmentInput['targetStatus'], string>> = {
+    const previousByTarget: Readonly<Record<Exclude<TransitionFulfillmentInput['targetStatus'], 'delivery_failed'>, string>> = {
       confirmed: 'paid', packing: 'confirmed', shipping: 'packing', delivered: 'shipping',
     };
     return client.$transaction(async (tx) => {

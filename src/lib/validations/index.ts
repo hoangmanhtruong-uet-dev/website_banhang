@@ -27,6 +27,8 @@ export const productBaseSchema = z.object({
   description: z.string().min(10, 'Mô tả phải có ít nhất 10 ký tự'),
   categoryId: z.string().min(1, 'Vui lòng chọn danh mục'),
   image: z.string().optional().nullable(),
+  sku: z.string().trim().min(3).max(64).regex(/^[A-Za-z0-9_-]+$/).transform(value => value.toUpperCase()).optional(),
+  lowStockThreshold: z.number().int().min(0).max(1_000_000).optional(),
 });
 
 export const productSchema = productBaseSchema.superRefine((data, ctx) => {
@@ -128,3 +130,28 @@ export const registerSchema = z.object({
   name: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'), email: z.string().email('Email không hợp lệ'),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'), confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, { message: 'Mật khẩu xác nhận không khớp', path: ['confirmPassword'] });
+
+export const sellerKycSchema = z.object({
+  businessName: z.string().trim().min(2).max(191),
+  taxCode: z.string().trim().min(5).max(64).optional(),
+  identityNumber: z.string().trim().min(8).max(64),
+  identityFrontUrl: z.string().url(),
+  identityBackUrl: z.string().url(),
+  businessAddress: z.string().trim().min(10).max(500),
+}).strict();
+
+export const sellerApprovalSchema = z.object({
+  action: z.enum(['APPROVE', 'REJECT']),
+  commissionRate: moneyInputSchema({ field: 'commissionRate' }).optional(),
+  rejectionReason: z.string().trim().min(5).max(500).optional(),
+}).strict().superRefine((data, ctx) => {
+  if (data.action === 'REJECT' && !data.rejectionReason) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Cần nhập lý do từ chối', path: ['rejectionReason'] });
+  if (data.commissionRate && Money.compare(data.commissionRate, '100') > 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Phí hoa hồng không vượt quá 100%', path: ['commissionRate'] });
+});
+
+export const inventoryAdjustmentSchema = z.object({
+  quantityDelta: z.number().int().refine(value => value !== 0, 'Số lượng thay đổi phải khác 0'),
+  reason: z.string().trim().min(3).max(500),
+}).strict();
+
+export const payoutRequestSchema = z.object({ bankInfoId: z.string().min(1) }).strict();
