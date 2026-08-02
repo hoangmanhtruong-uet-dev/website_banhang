@@ -107,7 +107,8 @@ export default function AddressPage() {
   };
 
   return (
-    <div className="glass-card" style={{ padding: '30px', borderRadius: '24px' }}>
+    <>
+      <div className="glass-card" style={{ padding: '30px', borderRadius: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '20px', fontWeight: 700 }}>Địa chỉ của tôi</h1>
@@ -138,10 +139,13 @@ export default function AddressPage() {
           ))}
         </div>
       )}
+      </div>
 
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <form onSubmit={handleSubmit} style={{ background: '#121212', width: 'min(500px, 92vw)', padding: '30px', borderRadius: '24px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div className="modal-overlay" style={{ zIndex: 1000, padding: '16px' }} onMouseDown={event => {
+          if (event.target === event.currentTarget && !saving) setShowModal(false);
+        }}>
+          <form onSubmit={handleSubmit} className="modal-content" style={{ width: 'min(560px, 100%)', maxWidth: '560px', maxHeight: 'calc(100dvh - 32px)', padding: '30px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <h2>{editingId ? 'Sửa địa chỉ' : 'Địa chỉ mới'}</h2>
             <input required minLength={2} placeholder="Họ và tên" className="input-field" value={formData.fullName} onChange={event => setFormData({ ...formData, fullName: event.target.value })} />
             <input required pattern="0[0-9]{9}" placeholder="Số điện thoại" className="input-field" value={formData.phone} onChange={event => setFormData({ ...formData, phone: event.target.value.replace(/\D/g, '') })} />
@@ -160,6 +164,6 @@ export default function AddressPage() {
           </form>
         </div>
       )}
-    </div>
+    </>
   );
 }
