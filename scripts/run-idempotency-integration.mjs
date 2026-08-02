@@ -19,6 +19,12 @@ const env = {
   WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || 'integration-webhook-secret-at-least-32-characters',
 };
 const managedExternally = process.env.INTEGRATION_DB_MANAGED === '1';
+const requestedTestFiles = process.argv.slice(2);
+const integrationTestFiles = requestedTestFiles.length > 0 ? requestedTestFiles : [
+  'tests/idempotency.integration.test.ts', 'tests/inventory.integration.test.ts', 'tests/outbox.integration.test.ts',
+  'tests/money-correctness.integration.test.ts', 'tests/order-state.integration.test.ts', 'tests/fulfillment.integration.test.ts',
+  'tests/commerce-flow.e2e.test.ts',
+];
 
 function run(command, args) {
   const result = spawnSync(command, args, { cwd: process.cwd(), env, stdio: 'inherit', shell: false });
@@ -35,7 +41,7 @@ try {
     run(process.execPath, ['scripts/test-order-state-migration-upgrade.mjs']);
   }
   run(process.execPath, ['node_modules/prisma/build/index.js', 'generate']);
-  run(process.execPath, ['node_modules/tsx/dist/cli.mjs', '--test', '--test-concurrency=1', 'tests/idempotency.integration.test.ts', 'tests/inventory.integration.test.ts', 'tests/outbox.integration.test.ts', 'tests/money-correctness.integration.test.ts', 'tests/order-state.integration.test.ts', 'tests/fulfillment.integration.test.ts']);
+  run(process.execPath, ['node_modules/tsx/dist/cli.mjs', '--test', '--test-concurrency=1', ...integrationTestFiles]);
 } finally {
   if (!managedExternally && process.env.KEEP_INTEGRATION_DB !== '1') {
     spawnSync('docker', ['compose', '-f', 'docker-compose.integration.yml', 'down', '--volumes'], {

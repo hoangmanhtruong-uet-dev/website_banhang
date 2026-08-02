@@ -66,6 +66,7 @@ export const refundRequiredPayloadSchema = z.object({
   amount: outboxMoneySchema.optional(), currency: z.literal('VND').optional(),
 }).strict();
 export const notificationPayloadSchema = z.object({
+  channel: z.enum(['email', 'sms']).default('email'),
   recipient: z.string().trim().min(1).max(191),
   template: z.string().trim().min(1).max(96),
   orderId: z.string().min(1).optional(),

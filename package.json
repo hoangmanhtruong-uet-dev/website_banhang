@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit",
     "test:idempotency:integration": "node scripts/run-idempotency-integration.mjs",
     "test:integration": "node scripts/run-idempotency-integration.mjs",
+    "test:e2e": "node scripts/run-idempotency-integration.mjs tests/commerce-flow.e2e.test.ts",
     "inventory:expire": "tsx scripts/inventory-jobs.ts expire",
     "inventory:reconcile": "tsx scripts/inventory-jobs.ts reconcile",
     "inventory:repair": "tsx scripts/inventory-jobs.ts repair",

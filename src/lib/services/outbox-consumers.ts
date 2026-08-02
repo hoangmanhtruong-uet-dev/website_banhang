@@ -4,12 +4,13 @@ import { logger } from '@/lib/logger';
 import { Money } from '@/lib/utils/money';
 import { ORDER_STATUS, transitionOrderInTransaction } from '@/lib/services/order-state.service';
 import type { NotificationProvider } from '@/lib/services/notification-provider';
-import { LogNotificationProvider } from '@/lib/services/notification-provider';
+import { createNotificationProvider } from '@/lib/services/notification-provider';
 import {
   enqueueOutboxEvent,
   NonRetryableOutboxError,
   notificationPayloadSchema,
   OUTBOX_EVENT,
+  orderPayloadSchema,
   parseOutboxPayload,
   refundRequiredPayloadSchema,
   resultHash,
@@ -111,6 +112,29 @@ async function processRefund(client: PrismaClient, event: OutboxEvent, payload: 
   }, { maxWait: 10_000, timeout: 20_000 });
 }
 
+async function queueOrderNotifications(client: PrismaClient, event: OutboxEvent, payload: unknown): Promise<void> {
+  const input = orderPayloadSchema.passthrough().parse(payload);
+  const consumerName = `order-notification-queue-v1:${event.eventType}`;
+  await client.$transaction(async (tx) => {
+    const processed = await tx.processedOutboxEvent.findUnique({ where: { consumerName_eventId: { consumerName, eventId: event.id } } });
+    if (processed) return;
+    const order = await tx.order.findUnique({ where: { id: input.orderId }, select: { id: true, customerEmail: true, customerPhone: true } });
+    if (!order) throw new NonRetryableOutboxError('ORDER_NOT_FOUND', 'Notification order does not exist');
+    const template = event.eventType.toLowerCase().replaceAll('_', '-');
+    const recipients = [
+      ...(order.customerEmail ? [{ channel: 'email' as const, recipient: order.customerEmail }] : []),
+      ...(order.customerPhone ? [{ channel: 'sms' as const, recipient: order.customerPhone }] : []),
+    ];
+    for (const target of recipients) {
+      await enqueueOutboxEvent(tx, {
+        eventType: OUTBOX_EVENT.NOTIFICATION_REQUESTED, aggregateType: 'Order', aggregateId: order.id, orderId: order.id,
+        idempotencyKey: `notification:${event.id}:${target.channel}`,
+        payload: { channel: target.channel, recipient: target.recipient, template, orderId: order.id },
+      });
+    }
+    await tx.processedOutboxEvent.create({ data: { consumerName, eventId: event.id, resultHash: resultHash({ orderId: order.id, channels: recipients.map((item) => item.channel) }) } });
+  });
+}
 async function processNotification(
   client: PrismaClient,
   provider: NotificationProvider,
@@ -129,7 +153,7 @@ async function processNotification(
       where: { consumerName_eventId: { consumerName, eventId: event.id } },
       create: {
         eventId: event.id, consumerName, idempotencyKey: `delivery:${event.id}`,
-        providerIdempotencyKey, recipient: input.recipient, template: input.template,
+        providerIdempotencyKey, channel: input.channel, recipient: input.recipient, template: input.template,
       },
       update: {},
     });
@@ -143,7 +167,7 @@ async function processNotification(
 
   try {
     const result = await provider.send({
-      recipient: input.recipient, template: input.template, idempotencyKey: providerIdempotencyKey,
+      channel: input.channel, recipient: input.recipient, template: input.template, idempotencyKey: providerIdempotencyKey,
       data: { ...(input.orderId ? { orderId: input.orderId } : {}), ...(input.refundId ? { refundId: input.refundId } : {}) },
     });
     await client.$transaction(async (tx) => {
@@ -168,7 +192,7 @@ async function processNotification(
 export class OutboxConsumerRegistry {
   private readonly consumers: ReadonlyMap<string, OutboxConsumer>;
 
-  constructor(private readonly client: PrismaClient = prisma, provider: NotificationProvider = new LogNotificationProvider()) {
+  constructor(private readonly client: PrismaClient = prisma, provider: NotificationProvider = createNotificationProvider()) {
     const noop = (eventType: string, consumerName: string): OutboxConsumer => ({
       eventType, consumerName,
       handle: async (event) => durableNoop(client, event, consumerName, parseOutboxPayload(event)),
@@ -177,16 +201,16 @@ export class OutboxConsumerRegistry {
       noop(OUTBOX_EVENT.INVENTORY_RESERVED, 'inventory-reserved-observer-v1'),
       noop(OUTBOX_EVENT.INVENTORY_CONSUMED, 'order-paid-observer-v1'),
       noop(OUTBOX_EVENT.INVENTORY_RESERVATION_EXPIRED, 'inventory-expired-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_PAID, 'order-paid-transition-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_CONFIRMED, 'order-confirmed-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_PACKING_STARTED, 'order-packing-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_SHIPPED, 'order-shipped-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_DELIVERED, 'order-delivered-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_CANCELLED, 'order-cancelled-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_RETURN_REQUESTED, 'order-return-requested-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_RETURNED, 'order-returned-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_REFUNDED, 'order-refunded-observer-v1'),
-      noop(OUTBOX_EVENT.ORDER_REFUND_PENDING, 'order-refund-pending-observer-v1'),
+      ...[
+        OUTBOX_EVENT.ORDER_PAID, OUTBOX_EVENT.ORDER_CONFIRMED, OUTBOX_EVENT.ORDER_PACKING_STARTED,
+        OUTBOX_EVENT.ORDER_SHIPPED, OUTBOX_EVENT.ORDER_DELIVERED, OUTBOX_EVENT.ORDER_CANCELLED,
+        OUTBOX_EVENT.ORDER_RETURN_REQUESTED, OUTBOX_EVENT.ORDER_RETURNED, OUTBOX_EVENT.ORDER_REFUNDED,
+        OUTBOX_EVENT.ORDER_REFUND_PENDING,
+      ].map((eventType): OutboxConsumer => ({
+        eventType,
+        consumerName: `order-notification-queue-v1:${eventType}`,
+        handle: (event) => queueOrderNotifications(client, event, parseOutboxPayload(event)),
+      })),
       noop(OUTBOX_EVENT.LATE_PAYMENT_REVIEW_REQUIRED, 'late-payment-review-v1'),
       { eventType: OUTBOX_EVENT.REFUND_REQUIRED, consumerName: 'internal-wallet-refund-v1', handle: (event) => processRefund(client, event, parseOutboxPayload(event)) },
       { eventType: OUTBOX_EVENT.NOTIFICATION_REQUESTED, consumerName: 'notification-delivery-v1', handle: (event) => processNotification(client, provider, event, parseOutboxPayload(event)) },
