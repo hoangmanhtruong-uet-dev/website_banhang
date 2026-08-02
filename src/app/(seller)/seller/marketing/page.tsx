@@ -1,83 +1,21 @@
 'use client';
-import { useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useToastStore } from '@/components/ui/Toast';
+import { formatPrice } from '@/lib/utils';
 
-export default function MarketingPage() {
-  const [showAdd, setShowAdd] = useState(false);
-  const addToast = useToastStore(s => s.addToast);
+type Voucher={id:string;code:string;description:string|null;discountType:string;discountValue:string;minOrderValue:string;maxDiscount:string|null;startDate:string;endDate:string;usageLimit:number;usedCount:number};
+type Form={code:string;description:string;discountType:'percentage'|'fixed';discountValue:string;minOrderValue:string;maxDiscount:string;endDate:string;usageLimit:string};
+const initial:Form={code:'',description:'',discountType:'percentage',discountValue:'',minOrderValue:'0',maxDiscount:'',endDate:'',usageLimit:'100'};
+function message(body:unknown){if(typeof body==='object'&&body){const value=body as {error?:string|{message?:string};message?:string};return typeof value.error==='string'?value.error:value.error?.message??value.message??'Có lỗi xảy ra';}return 'Có lỗi xảy ra';}
 
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800 }}>Chương Trình Khuyến Mãi</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Tạo mã giảm giá để thu hút khách hàng và tăng doanh số cho shop của bạn.</p>
-        </div>
-        <button onClick={() => setShowAdd(true)} className="btn-primary" style={{ padding: '12px 24px' }}>
-          ➕ Tạo Voucher mới
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
-        <div className="glass-card" style={{ padding: '24px', borderLeft: '5px solid var(--accent)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>GIAM50K</h3>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '5px 0 0' }}>Giảm 50.000đ cho đơn từ 500k</p>
-            </div>
-            <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700 }}>ĐANG CHẠY</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              <p style={{ margin: 0 }}>Đã dùng: 12/100</p>
-              <p style={{ margin: 0 }}>Hết hạn: 31/12/2026</p>
-            </div>
-            <button className="btn-secondary" style={{ padding: '5px 15px', fontSize: '11px' }}>Sửa</button>
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '24px', borderLeft: '5px solid #ef4444' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, opacity: 0.5 }}>FREESHIP</h3>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '5px 0 0' }}>Miễn phí vận chuyển toàn quốc</p>
-            </div>
-            <span style={{ fontSize: '12px', color: '#ef4444', fontWeight: 700 }}>HẾT HẠN</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              <p style={{ margin: 0 }}>Đã dùng: 100/100</p>
-              <p style={{ margin: 0 }}>Hết hạn: 01/01/2026</p>
-            </div>
-            <button className="btn-secondary" style={{ padding: '5px 15px', fontSize: '11px' }}>Kích hoạt lại</button>
-          </div>
-        </div>
-      </div>
-
-      {showAdd && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-card" style={{ background: '#121212', width: '500px', padding: '30px' }}>
-            <h2 style={{ marginBottom: '20px' }}>Tạo Voucher mới</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <input placeholder="Mã Voucher (Ví dụ: HELLO2024)" className="input-field" />
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <select className="input-field" style={{ flex: 1 }}>
-                  <option>Phần trăm (%)</option>
-                  <option>Số tiền cố định (đ)</option>
-                </select>
-                <input placeholder="Giá trị" className="input-field" style={{ flex: 1 }} />
-              </div>
-              <input placeholder="Đơn hàng tối thiểu" className="input-field" />
-              <input type="date" className="input-field" placeholder="Ngày kết thúc" />
-              
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button onClick={() => setShowAdd(false)} className="btn-secondary" style={{ padding: '10px 20px' }}>Hủy</button>
-                <button onClick={() => { addToast('Tính năng đang được hoàn thiện! 🚧'); setShowAdd(false); }} className="btn-primary" style={{ padding: '10px 20px' }}>Tạo ngay</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+export default function MarketingPage(){
+ const [items,setItems]=useState<Voucher[]>([]); const [form,setForm]=useState<Form>(initial); const [show,setShow]=useState(false); const [loading,setLoading]=useState(true); const toast=useToastStore(s=>s.addToast);
+ const load=useCallback(async()=>{setLoading(true);try{const r=await fetch('/api/seller/vouchers');const b=await r.json();if(!r.ok)throw new Error(message(b));setItems(b);}catch(e){toast(e instanceof Error?e.message:'Không tải được voucher','error');}finally{setLoading(false);}},[toast]);
+ useEffect(()=>{void load();},[load]);
+ async function create(e:FormEvent){e.preventDefault();const payload={...form,usageLimit:Number(form.usageLimit),maxDiscount:form.maxDiscount||null,currency:'VND'};const r=await fetch('/api/seller/vouchers',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const b=await r.json();if(!r.ok){toast(message(b),'error');return;}toast('Tạo voucher thành công');setForm(initial);setShow(false);void load();}
+ async function remove(id:string){if(!confirm('Xóa voucher này?'))return;const r=await fetch(`/api/seller/vouchers/${id}`,{method:'DELETE'});const b=await r.json();if(!r.ok){toast(message(b),'error');return;}toast('Đã xóa voucher');void load();}
+ async function reactivate(id:string){const r=await fetch(`/api/seller/vouchers/${id}/reactivate`,{method:'PUT',headers:{'content-type':'application/json'},body:'{}'});const b=await r.json();if(!r.ok){toast(message(b),'error');return;}toast('Đã gia hạn thêm 30 ngày');void load();}
+ return <div><div style={{display:'flex',justifyContent:'space-between',gap:20,alignItems:'center',marginBottom:30}}><div><h1 style={{fontSize:28,fontWeight:800}}>Voucher của shop</h1><p style={{color:'var(--text-muted)'}}>Voucher chỉ áp dụng cho sản phẩm thuộc Seller hiện tại.</p></div><button className="btn-primary" onClick={()=>setShow(true)}>+ Tạo voucher</button></div>
+ {loading?<div className="glass-card" style={{padding:24}}>Đang tải...</div>:items.length===0?<div className="glass-card" style={{padding:24}}>Shop chưa có voucher.</div>:<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:20}}>{items.map(v=>{const expired=new Date(v.endDate)<new Date();return <div key={v.id} className="glass-card" style={{padding:22,borderLeft:`4px solid ${expired?'#ef4444':'var(--accent)'}`}}><div style={{display:'flex',justifyContent:'space-between'}}><div><h3 style={{margin:0}}>{v.code}</h3><small>{v.description||'Không có mô tả'}</small></div><b style={{color:expired?'#ef4444':'#10b981'}}>{expired?'HẾT HẠN':'ĐANG CHẠY'}</b></div><p style={{fontWeight:700,color:'var(--accent)'}}>{v.discountType==='percentage'?`${v.discountValue}%`:formatPrice(v.discountValue)} · đơn từ {formatPrice(v.minOrderValue)}</p><small>Đã dùng {v.usedCount}/{v.usageLimit} · Hết hạn {new Date(v.endDate).toLocaleDateString('vi-VN')}</small><div style={{display:'flex',gap:10,marginTop:16}}>{expired&&<button className="btn-secondary" onClick={()=>void reactivate(v.id)}>Gia hạn 30 ngày</button>}<button className="btn-secondary" onClick={()=>void remove(v.id)} style={{color:'#ef4444'}}>Xóa</button></div></div>;})}</div>}
+ {show&&<div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.8)',display:'grid',placeItems:'center',padding:20}}><form onSubmit={create} className="glass-card" style={{background:'#121212',width:'min(560px,100%)',padding:28,display:'grid',gap:14}}><h2 style={{margin:0}}>Tạo voucher mới</h2><input required className="input-field" placeholder="Mã voucher" value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/><input className="input-field" placeholder="Mô tả" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}><select className="input-field" value={form.discountType} onChange={e=>setForm({...form,discountType:e.target.value as Form['discountType']})}><option value="percentage">Phần trăm</option><option value="fixed">Số tiền cố định</option></select><input required className="input-field" inputMode="numeric" placeholder="Giá trị giảm" value={form.discountValue} onChange={e=>setForm({...form,discountValue:e.target.value})}/><input required className="input-field" inputMode="numeric" placeholder="Đơn tối thiểu" value={form.minOrderValue} onChange={e=>setForm({...form,minOrderValue:e.target.value})}/><input className="input-field" inputMode="numeric" placeholder="Giảm tối đa" value={form.maxDiscount} onChange={e=>setForm({...form,maxDiscount:e.target.value})}/><input required type="date" className="input-field" value={form.endDate} onChange={e=>setForm({...form,endDate:e.target.value})}/><input required type="number" min="1" className="input-field" placeholder="Lượt dùng" value={form.usageLimit} onChange={e=>setForm({...form,usageLimit:e.target.value})}/></div><div style={{display:'flex',justifyContent:'flex-end',gap:10}}><button type="button" className="btn-secondary" onClick={()=>setShow(false)}>Hủy</button><button className="btn-primary">Tạo voucher</button></div></form></div>}</div>;
 }

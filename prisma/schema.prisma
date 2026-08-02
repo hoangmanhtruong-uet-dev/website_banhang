@@ -221,6 +221,8 @@ model Product {
   reservedQuantity      Int                    @default(0)
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  deletedById           String?
   orderItems            OrderItem[]
   reviewsData           Review[]
   sellerId              String?
@@ -229,6 +231,8 @@ model Product {
   inventoryReservations InventoryReservation[]
 
   @@index([sellerId])
+  @@index([sellerId, deletedAt, createdAt], map: "product_seller_deleted_created_idx")
+  @@index([deletedAt, createdAt], map: "product_deleted_created_idx")
   @@index([categoryId])
   @@index([code])
   @@map("product")

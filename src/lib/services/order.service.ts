@@ -42,7 +42,7 @@ export class OrderService {
       return map;
     }, new Map<string, number>());
     const mergedItems = Array.from(itemMap, ([productId, quantity]) => ({ productId, quantity }));
-    const products = await tx.product.findMany({ where: { id: { in: mergedItems.map((item) => item.productId) } } });
+    const products = await tx.product.findMany({ where: { id: { in: mergedItems.map((item) => item.productId) }, deletedAt: null } });
     if (products.length !== mergedItems.length) throw new ValidationError('Có sản phẩm không tồn tại');
 
     const orderItemsData: Array<{ productId: string; sellerId: string | null; quantity: number; price: Prisma.Decimal; lineTotal: Prisma.Decimal; currency: string }> = [];

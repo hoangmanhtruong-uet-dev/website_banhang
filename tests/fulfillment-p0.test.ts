@@ -37,3 +37,40 @@ test('shipper listing only exposes available or owned fulfillments and masks una
   assert.match(source, /shippingAddress: assignedToMe/);
   assert.doesNotMatch(source, /prisma\.order\.findMany/);
 });
+
+test('seller revenue is scoped to delivered fulfillments owned by the current seller', () => {
+  const source = read('src/app/api/seller/analytics/route.ts');
+  assert.match(source, /sellerId: session\.userId/);
+  assert.match(source, /item\.status === 'delivered'/);
+  assert.match(source, /Money\.sum\(revenueRows\.map\(item => item\.total\)\)/);
+  assert.match(source, /REVENUE_STATUSES/);
+});
+
+test('seller voucher CRUD derives ownership from session and validates payloads', () => {
+  const collection = read('src/app/api/seller/vouchers/route.ts');
+  const member = read('src/app/api/seller/vouchers/[id]/route.ts');
+  assert.match(collection, /sellerVoucherCreateSchema\.parse/);
+  assert.match(collection, /sellerId: session\.userId/);
+  assert.match(member, /sellerVoucherUpdateSchema\.parse/);
+  assert.match(member, /where: \{ id, sellerId: session\.userId \}/);
+});
+
+test('products are soft-deleted and excluded from storefront and checkout', () => {
+  const schema = read('prisma/schema.prisma');
+  const member = read('src/app/api/products/[id]/route.ts');
+  const collection = read('src/app/api/products/route.ts');
+  const checkout = read('src/lib/services/order.service.ts');
+  assert.match(schema, /deletedAt\s+DateTime\?/);
+  assert.match(member, /deletedAt: new Date\(\)/);
+  assert.doesNotMatch(member, /prisma\.product\.delete\(/);
+  assert.match(collection, /deletedAt: null/);
+  assert.match(checkout, /deletedAt: null/);
+});
+
+test('admin role writes accept only the canonical role enum', () => {
+  const validation = read('src/lib/validations/index.ts');
+  const roleRoute = read('src/app/api/admin/users/[id]/role/route.ts');
+  assert.match(validation, /USER_ROLES = \['user', 'admin', 'shipper'\]/);
+  assert.match(roleRoute, /roleUpdateSchema\.parse/);
+  assert.match(roleRoute, /activeAdmins <= 1/);
+});

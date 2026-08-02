@@ -1,49 +1,20 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { canAccessSeller, getSession } from '@/lib/auth';
+import { createHandler } from '@/lib/api-handler';
+import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/errors';
 
-// PUT: Kích hoạt lại Voucher (Kéo dài ngày hết hạn thêm 30 ngày)
-export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
-  const params = await context.params;
-  try {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return createHandler(async request => {
     const session = await getSession();
-    if (!session || (!session.isSeller && session.role !== 'admin')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    const existingVoucher = await prisma.voucher.findUnique({ where: { id: params.id } });
-    if (!existingVoucher) {
-      return NextResponse.json({ error: 'Voucher không tồn tại' }, { status: 404 });
-    }
-
-    if (existingVoucher.sellerId !== session.userId) {
-      return NextResponse.json({ error: 'Bạn không có quyền chỉnh sửa voucher này' }, { status: 403 });
-    }
-
-    // Nhận ngày hết hạn mới nếu được truyền lên, ngược lại mặc định cộng thêm 30 ngày kể từ hôm nay
-    const body = await req.json().catch(() => ({}));
-    let newEndDate = body.endDate ? new Date(body.endDate) : null;
-
-    if (!newEndDate) {
-      const today = new Date();
-      today.setDate(today.getDate() + 30); // Thêm 30 ngày
-      newEndDate = today;
-    }
-
-    const updatedVoucher = await prisma.voucher.update({
-      where: { id: params.id },
-      data: {
-        endDate: newEndDate,
-        // Có thể reset lại usedCount về 0 hoặc giữ nguyên tùy ý. Cứ giữ nguyên hoặc tăng thêm usageLimit nếu muốn.
-      }
-    });
-
-    return NextResponse.json({ 
-      message: 'Kích hoạt lại và gia hạn voucher thành công! ✨', 
-      voucher: updatedVoucher 
-    });
-  } catch (error) {
-    console.error('[REACTIVATE_VOUCHER]', error);
-    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
-  }
+    if (!canAccessSeller(session) || !session.isSeller) throw new AuthorizationError('Seller access required');
+    const { id } = await context.params;
+    const voucher = await prisma.voucher.findFirst({ where: { id, sellerId: session.userId } });
+    if (!voucher) throw new NotFoundError('Voucher không tồn tại');
+    const body = await request.json().catch(() => ({})) as { endDate?: unknown };
+    const endDate = body.endDate === undefined ? new Date(Date.now() + 30 * 86_400_000) : new Date(String(body.endDate));
+    if (Number.isNaN(endDate.getTime()) || endDate <= new Date()) throw new ValidationError('Ngày hết hạn mới phải ở tương lai');
+    const updated = await prisma.voucher.update({ where: { id }, data: { endDate } });
+    return { message: 'Kích hoạt lại voucher thành công', voucher: updated };
+  })(req);
 }

@@ -133,7 +133,7 @@ function AdminUsersContent() {
         }
       } else {
         const d = await res.json();
-        addToast(d.error || 'Thao tác thất bại.');
+        addToast(typeof d.error === 'string' ? d.error : d.error?.message || 'Thao tác thất bại.', 'error');
       }
     } catch { addToast('Lỗi kết nối.'); }
   };

@@ -1,69 +1,36 @@
-import { NextResponse } from 'next/server';
-import { serializeMoneyFields } from '@/lib/utils/money';
-import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { NextResponse, type NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
+import prisma from '@/lib/db';
+import { requireAdmin } from '@/lib/auth';
+import { createHandler } from '@/lib/api-handler';
+import { adminCreateUserSchema } from '@/lib/validations';
+import { generateNextUserId } from '@/lib/idGenerator';
 
-export async function GET() {
-  try {
-    const session = await getSession();
-    if (!session || session.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+const safeUserSelect = {
+  id: true, code: true, name: true, email: true, role: true, isActive: true, isSeller: true,
+  phone: true, gender: true, birthday: true, avatar: true, licensePlate: true,
+  transportType: true, createdAt: true, updatedAt: true,
+} as const;
 
-    const users = await prisma.user.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        isSeller: true,
-        phone: true,
-        gender: true,
-        birthday: true,
-        avatar: true,
-        licensePlate: true,
-        transportType: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    return NextResponse.json(serializeMoneyFields(users));
-  } catch (error) {
-    console.error('[GET /api/admin/users]', error);
-    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
-  }
+export async function GET(req: NextRequest) {
+  return createHandler(async () => {
+    await requireAdmin();
+    return prisma.user.findMany({ orderBy: { createdAt: 'desc' }, select: safeUserSelect });
+  })(req);
 }
 
-export async function POST(req: Request) {
-  try {
-    const session = await getSession();
-    if (!session || session.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    const { name, email, password, role } = await req.json();
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'Vui lòng nhập đầy đủ thông tin' }, { status: 400 });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
+export async function POST(req: NextRequest) {
+  return createHandler(async request => {
+    await requireAdmin();
+    const input = adminCreateUserSchema.parse(await request.json());
+    const password = await bcrypt.hash(input.password, 12);
     const user = await prisma.user.create({
       data: {
-        code: `AD${Math.floor(Math.random() * 900) + 100}`,
-        name,
-        email,
-        password: hashedPassword,
-        role: role || 'admin',
+        code: await generateNextUserId(input.role), name: input.name, email: input.email,
+        password, role: input.role, isSeller: false,
       },
+      select: safeUserSelect,
     });
-
-    return NextResponse.json(serializeMoneyFields(user), { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Email đã tồn tại hoặc lỗi hệ thống' }, { status: 400 });
-  }
+    return NextResponse.json(user, { status: 201 });
+  })(req);
 }

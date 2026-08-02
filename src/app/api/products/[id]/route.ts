@@ -11,13 +11,9 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const { id } = await params;
-    const product = await prisma.product.findUnique({ where: { id }, include: { images: true, categoryRef: true } });
+    const product = await prisma.product.findFirst({ where: { id, deletedAt: null }, include: { images: true, categoryRef: true } });
     if (!product) return NextResponse.json({ error: 'Sản phẩm không tồn tại' }, { status: 404 });
-    return NextResponse.json(serializeMoneyFields({
-      ...product,
-      category: product.categoryRef?.name ?? '',
-      image: product.image || product.images[0]?.url || getCategoryProductImage(product.categoryRef?.name),
-    }));
+    return NextResponse.json(serializeMoneyFields({ ...product, category: product.categoryRef?.name ?? '', image: product.image || product.images[0]?.url || getCategoryProductImage(product.categoryRef?.name) }));
   } catch (error) {
     console.error('[GET /api/products/[id]]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
@@ -29,7 +25,7 @@ export async function PUT(req: Request, { params }: Params) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { id } = await params;
-    const existingProduct = await prisma.product.findUnique({ where: { id } });
+    const existingProduct = await prisma.product.findFirst({ where: { id, deletedAt: null } });
     if (!existingProduct) return NextResponse.json({ error: 'Sản phẩm không tồn tại' }, { status: 404 });
     if (session.role !== 'admin' && existingProduct.sellerId !== session.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
@@ -39,9 +35,7 @@ export async function PUT(req: Request, { params }: Params) {
     const input = parsed.data;
     const nextPrice = input.price ?? existingProduct.price;
     const nextOriginalPrice = input.originalPrice !== undefined ? input.originalPrice : existingProduct.originalPrice;
-    if (nextOriginalPrice && Money.compare(nextOriginalPrice, nextPrice) <= 0) {
-      return NextResponse.json({ error: 'Giá gốc phải lớn hơn giá bán' }, { status: 400 });
-    }
+    if (nextOriginalPrice && Money.compare(nextOriginalPrice, nextPrice) <= 0) return NextResponse.json({ error: 'Giá gốc phải lớn hơn giá bán' }, { status: 400 });
     const updateData: Prisma.ProductUpdateInput = {
       ...(input.name !== undefined ? { name: input.name } : {}),
       ...(input.price !== undefined ? { price: input.price } : {}),
@@ -50,6 +44,8 @@ export async function PUT(req: Request, { params }: Params) {
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.categoryId !== undefined ? { categoryRef: { connect: { id: input.categoryId } } } : {}),
       ...(input.image !== undefined ? { image: input.image } : {}),
+      ...(typeof raw.inStock === 'boolean' ? { inStock: raw.inStock } : {}),
+      ...(typeof raw.stockQuantity === 'number' && Number.isInteger(raw.stockQuantity) && raw.stockQuantity >= 0 ? { stockQuantity: raw.stockQuantity, inStock: raw.stockQuantity > 0 } : {}),
     };
     if (raw.images !== undefined) {
       const imageUrls = Array.isArray(raw.images) ? raw.images.filter((url): url is string => typeof url === 'string') : [];
@@ -69,11 +65,11 @@ export async function DELETE(_req: Request, { params }: Params) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { id } = await params;
-    const existingProduct = await prisma.product.findUnique({ where: { id } });
+    const existingProduct = await prisma.product.findFirst({ where: { id, deletedAt: null } });
     if (!existingProduct) return NextResponse.json({ error: 'Sản phẩm không tồn tại' }, { status: 404 });
     if (session.role !== 'admin' && existingProduct.sellerId !== session.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    await prisma.product.delete({ where: { id } });
-    return NextResponse.json({ message: 'Xóa sản phẩm thành công' });
+    await prisma.product.update({ where: { id }, data: { deletedAt: new Date(), deletedById: session.userId, inStock: false } });
+    return NextResponse.json({ message: 'Đã ẩn sản phẩm khỏi hệ thống' });
   } catch (error) {
     console.error('[DELETE /api/products/[id]]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });

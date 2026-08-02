@@ -74,6 +74,54 @@ export const voucherMoneySchema = z.object({
   maxDiscount: moneyInputSchema({ field: 'maxDiscount' }).nullable().optional(),
   currency: currencySchema,
 });
+const dateInputSchema = z.string().trim().min(1, 'Ngày không được để trống').transform((value, ctx) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Ngày không hợp lệ' });
+    return z.NEVER;
+  }
+  return date;
+});
+
+const sellerVoucherFields = z.object({
+  code: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9_-]+$/, 'Mã voucher chỉ gồm chữ, số, _ hoặc -').transform(value => value.toUpperCase()),
+  description: z.string().trim().max(500).nullable().optional(),
+  discountType: z.enum(['percentage', 'fixed']),
+  discountValue: moneyInputSchema({ allowZero: false, field: 'discountValue' }),
+  minOrderValue: moneyInputSchema({ field: 'minOrderValue' }).default('0'),
+  maxDiscount: moneyInputSchema({ field: 'maxDiscount' }).nullable().optional(),
+  currency: currencySchema,
+  startDate: dateInputSchema.optional(),
+  endDate: dateInputSchema,
+  usageLimit: z.number().int().positive().max(1_000_000).default(100),
+}).strict();
+
+export const sellerVoucherCreateSchema = sellerVoucherFields.superRefine((data, ctx) => {
+  if (data.discountType === 'percentage' && Money.compare(data.discountValue, '100') > 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Phần trăm giảm không được vượt quá 100', path: ['discountValue'] });
+  }
+  if (data.endDate <= (data.startDate ?? new Date())) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Ngày kết thúc phải ở tương lai và sau ngày bắt đầu', path: ['endDate'] });
+  }
+});
+
+export const sellerVoucherUpdateSchema = sellerVoucherFields.omit({ code: true }).partial().strict();
+
+export const USER_ROLES = ['user', 'admin', 'shipper'] as const;
+export const userRoleSchema = z.enum(USER_ROLES);
+export const roleUpdateSchema = z.object({ role: userRoleSchema }).strict();
+export const adminCreateUserSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(8).max(128),
+  role: userRoleSchema.default('user'),
+}).strict();
+export const adminUpdateUserSchema = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
+  email: z.string().trim().toLowerCase().email().optional(),
+  password: z.string().min(8).max(128).optional(),
+  role: userRoleSchema.optional(),
+}).strict().refine(value => Object.keys(value).length > 0, { message: 'Không có dữ liệu cần cập nhật' });
 
 export const loginSchema = z.object({ email: z.string().email('Email không hợp lệ'), password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự') });
 export const registerSchema = z.object({
