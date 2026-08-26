@@ -102,7 +102,7 @@ export default function ProductsPage() {
         </div>
       ) : products.length > 0 ? (
         <div className="product-grid">
-          {products.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+          {products.map((p, i) => <ProductCard key={p.id} product={p} index={i} imagePriority={i === 0} />)}
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '80px 0' }}>

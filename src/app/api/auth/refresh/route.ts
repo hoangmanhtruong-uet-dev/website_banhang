@@ -3,13 +3,13 @@ import { cookies } from 'next/headers';
 import { SessionService } from '@/lib/services/session.service';
 import { AuthService } from '@/lib/services/auth.service';
 import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
+import { getRateLimitIdentity, getTrustedClientIp } from '@/lib/client-ip';
 
 export async function POST(req: Request) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
-    const limiter = await rateLimit(`refresh:${ip}`, { windowMs: 15 * 60 * 1000, max: 10 });
+    const limiter = await rateLimit(getRateLimitIdentity(req, 'refresh'), { windowMs: 15 * 60 * 1000, max: 10 });
     if (!limiter.success) {
-      return getRateLimitResponse(limiter.reset);
+      return getRateLimitResponse(limiter);
     }
 
     const cookieStore = await cookies();
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     }
 
     const userAgent = req.headers.get('user-agent') || undefined;
-    const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0] || undefined;
+    const ipAddress = getTrustedClientIp(req);
 
     const result = await SessionService.refreshSession(oldRefreshToken, userAgent, ipAddress);
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       return response;
     }
 
-    const { refreshToken, user } = result;
+    const { refreshToken, expiresAt, user } = result;
 
     const accessToken = await AuthService.signAccessToken({
       userId: user.id,
@@ -45,7 +45,8 @@ export async function POST(req: Request) {
       user: { id: user.id, name: user.name, email: user.email, role: user.role, isSeller: user.isSeller },
     });
 
-    AuthService.setAuthCookies(response, accessToken, refreshToken);
+    AuthService.setAuthCookies(response, accessToken, refreshToken, expiresAt);
+    AuthService.setUserRoleCookie(response, user.role, expiresAt);
 
     return response;
   } catch (error) {

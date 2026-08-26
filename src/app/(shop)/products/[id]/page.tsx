@@ -7,6 +7,8 @@ import { getAvailableStock, useCartStore } from '@/store/cartStore';
 import { useToastStore } from '@/components/ui/Toast';
 import { Product } from '@/types/product';
 import { useAuthStore } from '@/store/authStore';
+import SafeImage from '@/components/common/SafeImage';
+import { getCategoryProductImage } from '@/lib/product-image';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -57,6 +59,9 @@ export default function ProductDetailPage() {
 
   const availableStock = getAvailableStock(product);
   const hasDiscount = Boolean(product.originalPrice && compareMoneyStrings(product.originalPrice, product.price) > 0);
+  const mainImage = product.images?.[activeImageIndex]?.url || product.image;
+  const imageFallback = getCategoryProductImage(product.category || product.categoryRef?.name);
+
 
   const handleAddToCart = () => {
     if (isAuthLoading || availableStock <= 0) return;
@@ -80,17 +85,15 @@ export default function ProductDetailPage() {
             height: '500px', display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: product.gradient || 'var(--bg-secondary)', overflow: 'hidden', position: 'relative'
           }}>
-            {product.images && product.images.length > 0 ? (
-              <img 
-                src={product.images[activeImageIndex]?.url || product.image} 
-                alt={product.name} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              />
-            ) : product.image ? (
-              <img 
-                src={product.image} 
-                alt={product.name} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+            {mainImage ? (
+              <SafeImage
+                src={mainImage}
+                fallbackSrc={imageFallback}
+                alt={product.name}
+                fill
+                priority
+                sizes="(max-width: 768px) 45vw, (max-width: 1280px) 42vw, 500px"
+                style={{ objectFit: 'cover' }}
               />
             ) : (
               <span style={{ fontSize: '120px', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' }}>
@@ -106,6 +109,7 @@ export default function ProductDetailPage() {
                   key={img.id}
                   onClick={() => setActiveImageIndex(i)}
                   style={{
+                    position: 'relative',
                     width: '70px',
                     height: '70px',
                     borderRadius: '12px',
@@ -117,7 +121,7 @@ export default function ProductDetailPage() {
                     transition: 'all 0.2s',
                   }}
                 >
-                  <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <SafeImage src={img.url} fallbackSrc={imageFallback} alt={product.name + ' thumbnail ' + (i + 1)} fill sizes="70px" style={{ objectFit: 'cover' }} />
                 </button>
               ))}
             </div>

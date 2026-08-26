@@ -3,10 +3,13 @@ import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
+import { enforceManualWalletMutationPolicy } from '@/lib/security/manual-wallet-mutation-guard';
+import { ManualWalletMutationDisabledError } from '@/lib/security/manual-wallet-mutation-policy';
 import { Money, normalizeCurrency, parseMoneyInput, serializeMoneyFields } from '@/lib/utils/money';
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    enforceManualWalletMutationPolicy('admin-balance-adjustment', '/api/admin/users/:id/balance');
     const actor = await requireAdmin();
     const params = await context.params;
     const body = await req.json() as Record<string, unknown>;
@@ -17,6 +20,9 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     const requested = parseMoneyInput(body.amount ?? body.balance, { allowZero: body.balance !== undefined, field: body.amount !== undefined ? 'amount' : 'balance' });
     const referenceId = randomUUID();
     const updated = await prisma.$transaction(async (tx) => {
+      // Keep the production invariant adjacent to the write as well as at the
+      // route boundary so a future service extraction cannot bypass it.
+      enforceManualWalletMutationPolicy('admin-balance-adjustment', '/api/admin/users/:id/balance');
       await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM user WHERE id = ${params.id} FOR UPDATE`);
       const wallet = await tx.user.findUniqueOrThrow({ where: { id: params.id }, select: { id: true, name: true, email: true, balance: true, currency: true } });
       if (wallet.currency !== currency) throw new Error('currency mismatch');
@@ -37,6 +43,11 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     });
     return NextResponse.json(serializeMoneyFields(updated));
   } catch (error) {
+    if (error instanceof ManualWalletMutationDisabledError) {
+      return NextResponse.json({
+        error: { code: error.code, message: error.message },
+      }, { status: error.statusCode });
+    }
     console.error('[PATCH /api/admin/users/:id/balance]', error);
     const message = error instanceof Error ? error.message : 'Server error';
     return NextResponse.json({ error: message }, { status: 400 });

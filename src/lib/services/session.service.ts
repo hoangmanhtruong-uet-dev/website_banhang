@@ -1,5 +1,7 @@
 import prisma from '@/lib/db';
 import crypto from 'node:crypto';
+import { env } from '@/config/env';
+import { refreshTokenExpiresAt } from '@/config/refresh-token';
 
 export class SessionService {
   private static hashToken(token: string): string {
@@ -9,8 +11,7 @@ export class SessionService {
   static async createSession(userId: string, userAgent?: string, ipAddress?: string) {
     const refreshToken = crypto.randomBytes(40).toString('hex');
     const tokenHash = this.hashToken(refreshToken);
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+    const expiresAt = refreshTokenExpiresAt(new Date(), env.REFRESH_TOKEN_TTL);
 
     await prisma.session.create({
       data: {
@@ -60,8 +61,7 @@ export class SessionService {
 
       const refreshToken = crypto.randomBytes(40).toString('hex');
       const tokenHash = this.hashToken(refreshToken);
-      const expiresAt = new Date(now);
-      expiresAt.setDate(expiresAt.getDate() + 30);
+      const expiresAt = refreshTokenExpiresAt(now, env.REFRESH_TOKEN_TTL);
 
       await tx.session.create({
         data: {
@@ -89,6 +89,12 @@ export class SessionService {
     await prisma.session.updateMany({
       where: { userId },
       data: { revokedAt: new Date() },
+    });
+  }
+
+  static async cleanupExpiredSessions(now = new Date()) {
+    return prisma.session.deleteMany({
+      where: { expiresAt: { lte: now } },
     });
   }
 }

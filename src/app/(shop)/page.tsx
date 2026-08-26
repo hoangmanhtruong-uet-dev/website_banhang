@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
 import { formatPrice } from '@/lib/utils';
 import { Product } from '@/types/product';
-import { getProductImage } from '@/lib/product-image';
+import { DEFAULT_PRODUCT_IMAGE, getProductImage } from '@/lib/product-image';
+import SafeImage from '@/components/common/SafeImage';
 
 const categoryIcons: Record<string, string> = {
   'Thời trang': '👗', 'Công nghệ': '💻', 'Làm đẹp': '💄', 'Gia dụng': '🏠',
@@ -72,7 +73,7 @@ export default function Home() {
               <div className="hero-showcase-card">
                 <div className="hero-showcase-badge">Best seller</div>
                 <div className="hero-showcase-preview">
-                  <img className="hero-showcase-image" src={getProductImage(featuredProducts[0])} alt={featuredProducts[0].name} />
+                  <SafeImage className="hero-showcase-image" src={getProductImage(featuredProducts[0])} fallbackSrc={DEFAULT_PRODUCT_IMAGE} alt={featuredProducts[0].name} width={76} height={76} sizes="76px" priority />
                   <div>
                     <p>{featuredProducts[0]?.name}</p>
                     <strong>{formatPrice(featuredProducts[0]?.price ?? 0)}</strong>
@@ -88,7 +89,7 @@ export default function Home() {
                   <strong>{featuredProducts[1]?.badge}</strong>
                 </div>
                 <div className="hero-showcase-preview">
-                  <img className="hero-showcase-image" src={getProductImage(featuredProducts[1])} alt={featuredProducts[1].name} />
+                  <SafeImage className="hero-showcase-image" src={getProductImage(featuredProducts[1])} fallbackSrc={DEFAULT_PRODUCT_IMAGE} alt={featuredProducts[1].name} width={76} height={76} sizes="76px" />
                   <div>
                     <p>{featuredProducts[1]?.name}</p>
                     <strong>{formatPrice(featuredProducts[1]?.price ?? 0)}</strong>

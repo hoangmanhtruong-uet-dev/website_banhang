@@ -4,6 +4,7 @@ import { PasswordResetService } from '@/lib/services/password-reset.service';
 import { EmailService } from '@/lib/services/email.service';
 import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
 import { z } from 'zod';
+import { getRateLimitIdentity } from '@/lib/client-ip';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email(),
@@ -11,10 +12,9 @@ const forgotPasswordSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
-    const limiter = await rateLimit(`forgot-password:${ip}`, { windowMs: 15 * 60 * 1000, max: 3 });
+    const limiter = await rateLimit(getRateLimitIdentity(req, 'forgot-password'), { windowMs: 15 * 60 * 1000, max: 3 });
     if (!limiter.success) {
-      return getRateLimitResponse(limiter.reset);
+      return getRateLimitResponse(limiter);
     }
 
     const body = await req.json();

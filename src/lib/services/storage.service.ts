@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { v2 as cloudinary } from 'cloudinary';
 import { env } from '@/config/env';
+import { canonicalExtensionForMime, detectAllowedImageMime } from '@/lib/upload-policy';
 
 export interface StorageAdapter {
   upload(file: Buffer, filename: string, mimeType: string): Promise<string>;
@@ -14,34 +15,37 @@ class LocalStorageAdapter implements StorageAdapter {
   private uploadDir: string;
 
   constructor() {
-    this.uploadDir = path.join(process.cwd(), env.UPLOAD_DIR);
+    this.uploadDir = path.resolve(process.cwd(), env.UPLOAD_DIR);
   }
 
-  async upload(file: Buffer, filename: string, _mimeType: string): Promise<string> {
-    await fs.mkdir(this.uploadDir, { recursive: true });
-    const ext = path.extname(filename).toLowerCase();
-    // Sanitize extension
-    const safeExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? ext : '.bin';
-    const key = `${crypto.randomUUID()}${safeExt}`;
-    const filePath = path.join(this.uploadDir, key);
-    
-    // Path traversal protection
-    if (!filePath.startsWith(this.uploadDir)) {
-      throw new Error('Invalid file path');
+  private resolveKey(key: string): string {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|gif|webp)$/i.test(key)) {
+      throw new Error('Invalid storage key');
     }
+    const filePath = path.resolve(this.uploadDir, key);
+    const relative = path.relative(this.uploadDir, filePath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error('Invalid storage path');
+    }
+    return filePath;
+  }
 
+  async upload(file: Buffer, _filename: string, mimeType: string): Promise<string> {
+    await fs.mkdir(this.uploadDir, { recursive: true });
+    const detectedMime = detectAllowedImageMime(file);
+    if (!detectedMime || detectedMime !== mimeType) throw new Error('Invalid image content');
+    const key = `${crypto.randomUUID()}${canonicalExtensionForMime(detectedMime)}`;
+    const filePath = this.resolveKey(key);
     await fs.writeFile(filePath, file);
     return key;
   }
 
   async delete(key: string): Promise<void> {
-    const filePath = path.join(this.uploadDir, key);
-    if (!filePath.startsWith(this.uploadDir)) return;
-    
     try {
+      const filePath = this.resolveKey(key);
       await fs.unlink(filePath);
     } catch (error) {
-      console.error(`Failed to delete file: ${key}`, error);
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
   }
 
@@ -124,6 +128,8 @@ export class StorageService {
   }
 
   static async validateFile(file: Buffer, mimeType: string): Promise<boolean> {
+    if (detectAllowedImageMime(file) !== mimeType) return false;
+
     const signatures: Record<string, string> = {
       'image/jpeg': 'ffd8ff',
       'image/png': '89504e47',

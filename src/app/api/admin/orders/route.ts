@@ -19,7 +19,7 @@ export async function GET() {
     });
 
     return NextResponse.json(serializeMoneyFields(orders));
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

@@ -1,9 +1,24 @@
 # Production Checklist
 
+## Release gate
+
+Run these before every production deploy:
+
+```bash
+npm ci
+npm run lint && npm run typecheck && npm test && npm run build
+npm audit --omit=dev --audit-level=high
+```
+
+Run `npx prisma migrate deploy` as a release step, then start the app through a
+process supervisor with `npm start`. Store the production environment in the
+deployment secret manager (or a protected `.env` file), never in Git.
+
 ## 1. Environment Variables
 - [ ] `DATABASE_URL`: Use a production-grade database (e.g., RDS, Supabase).
 - [ ] `JWT_SECRET`: Set a strong, random secret.
-- [ ] `NEXT_PUBLIC_APP_URL`: Set to the production domain.
+- [ ] `NEXT_PUBLIC_APP_URL` and `API_ALLOWED_ORIGINS`: Set to the exact HTTPS production origin(s).
+- [ ] `REFRESH_TOKEN_TTL`: Set a positive integer number of seconds (for example `604800`).
 - [ ] `STORAGE_PROVIDER`: Set to `s3` or `cloudinary`.
 - [ ] `CLOUDINARY_URL` or S3 credentials: Set if using object storage.
 
@@ -27,5 +42,5 @@
 - [ ] Configure structured logging to a central log management system.
 
 ## 6. Deployment
-- [ ] Use a non-root user in Docker.
+- [ ] Run the app under a dedicated non-privileged operating-system user.
 - [ ] Implement graceful shutdown.

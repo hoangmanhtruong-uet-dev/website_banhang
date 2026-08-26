@@ -7,6 +7,7 @@ import { getSession } from '@/lib/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError, NotFoundError } from '@/lib/errors';
 import { requireIdempotencyKey } from '@/lib/idempotency';
+import { enforceManualWalletMutationPolicy } from '@/lib/security/manual-wallet-mutation-guard';
 import { IdempotencyService } from '@/lib/services/idempotency.service';
 import { DEFAULT_CURRENCY, Money, parseMoneyInput } from '@/lib/utils/money';
 
@@ -34,6 +35,7 @@ export const GET = createHandler(async () => {
 });
 
 export const POST = createHandler(async (req: NextRequest) => {
+  enforceManualWalletMutationPolicy('demo-top-up', '/api/user/balance');
   const session = await getSession();
   if (!session) throw new AuthenticationError();
   const idempotencyKey = requireIdempotencyKey(req.headers);
@@ -48,6 +50,9 @@ export const POST = createHandler(async (req: NextRequest) => {
     key: idempotencyKey,
     request: parsed,
     handler: async (tx) => {
+      // Defense in depth: keep the invariant next to the balance write if this
+      // transaction is later extracted into or reused by an internal service.
+      enforceManualWalletMutationPolicy('demo-top-up', '/api/user/balance');
       await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM user WHERE id = ${session.userId} FOR UPDATE`);
       const wallet = await tx.user.findUnique({ where: { id: session.userId }, select: { balance: true, currency: true } });
       if (!wallet) throw new NotFoundError('Không tìm thấy ví');

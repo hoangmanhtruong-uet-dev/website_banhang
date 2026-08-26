@@ -1,154 +1,155 @@
-# 🛒 MTRUONG-STORE — Nền tảng Thương mại điện tử Full-Stack
+# MTRUONG-STORE
 
-<div align="center">
-  <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js" />
-  <img src="https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript" />
-  <img src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma" />
-  <img src="https://img.shields.io/badge/MySQL-8-orange?style=for-the-badge&logo=mysql" />
-  <img src="https://img.shields.io/badge/Status-Active-green?style=for-the-badge" />
-</div>
+Nền tảng thương mại điện tử đa vai trò xây dựng với Next.js App Router, Prisma và MySQL. Dự án gồm storefront cho khách hàng, Seller Center, Admin Panel và luồng giao hàng cho shipper.
 
----
+## Tính năng
 
-## ✨ Giới thiệu
+- Khách hàng: duyệt sản phẩm/danh mục, giỏ hàng, checkout, đơn hàng, địa chỉ, hồ sơ, voucher và thông báo.
+- Seller: đăng ký bán hàng, quản lý sản phẩm, tồn kho, đơn hàng/fulfillment, voucher, doanh thu và hồ sơ shop.
+- Shipper: nhận và cập nhật đơn giao theo luồng fulfillment.
+- Admin: quản lý người dùng, sản phẩm, đơn hàng, tồn kho, người bán, voucher, payout, audit và monitoring.
+- Nghiệp vụ: tách fulfillment theo người bán; dự trữ tồn kho; money dùng `Decimal`; idempotency bền vững; state machine cho đơn/fulfillment; transactional outbox và audit log.
+- Bảo mật: JWT access/refresh cookie, refresh-token rotation, RBAC, Zod validation, kiểm tra Origin cho API mutation, rate limit lưu DB, upload ảnh kiểm tra magic bytes và giới hạn quota.
 
-**MTRUONG-STORE** là một nền tảng thương mại điện tử hoàn chỉnh được xây dựng bằng **Next.js 14 (App Router)**, hỗ trợ hệ thống đa vai trò: **Khách hàng**, **Người bán** và **Quản trị viên**.
+## Công nghệ
 
-## 🚀 Tính năng nổi bật
+| Thành phần | Công nghệ |
+| --- | --- |
+| Web/API | Next.js 16, React, TypeScript |
+| Dữ liệu | MySQL 8, Prisma |
+| Xác thực | `jose`, `bcryptjs`, HTTP-only cookies |
+| Client state | Zustand |
+| Styling | Tailwind CSS + CSS toàn cục |
+| Ảnh | Local storage hoặc Cloudinary |
 
-### 🛍️ Dành cho Khách hàng
-- Duyệt sản phẩm theo danh mục, tìm kiếm & lọc
-- Giỏ hàng, đặt hàng và theo dõi đơn hàng
-- Quản lý hồ sơ: Ảnh đại diện, SĐT, Giới tính, Ngày sinh
-- Quản lý địa chỉ giao hàng & thông tin ngân hàng
-- Kho Voucher cá nhân
+## Yêu cầu
 
-### 🏪 Dành cho Người bán (Seller Center)
-- Đăng ký trở thành người bán chỉ 1 click
-- Dashboard thống kê: Doanh thu, Đơn hàng, Đánh giá
-- Quản lý sản phẩm: Thêm, sửa, xóa sản phẩm
-- Quản lý đơn hàng của gian hàng
-- Tạo chương trình khuyến mãi (Voucher)
-- Hồ sơ shop tùy chỉnh
+- Node.js 22 hoặc mới hơn
+- MySQL 8+
+- npm
 
-### ⚙️ Dành cho Quản trị viên (Admin Panel)
-- Dashboard thống kê toàn hệ thống (dữ liệu thực từ DB)
-- Quản lý người dùng & Phân quyền (RBAC): Admin, Editor, Sale, Warehouse
-- Quản lý sản phẩm toàn sàn (kiểm duyệt, gỡ bỏ)
-- Quản lý kho hàng với cảnh báo hàng sắp hết
-- Quản lý đơn hàng: Đổi trạng thái toàn bộ vòng đời đơn
-- Marketing: Phát hành mã Voucher toàn sàn
-- Báo cáo doanh thu & Phân tích dữ liệu
-- Cấu hình hệ thống: Cổng thanh toán, Bảo mật, Sao lưu
+## Cài đặt nhanh
 
----
-
-## 🛠️ Công nghệ sử dụng
-
-| Layer | Công nghệ |
-|-------|-----------|
-| **Frontend** | Next.js 14 (App Router), React, TypeScript |
-| **Styling** | Vanilla CSS (Glassmorphism, Dark Mode) |
-| **Backend** | Next.js API Routes (REST API) |
-| **Database** | MySQL + Prisma ORM |
-| **Auth** | JWT (jose) + bcryptjs |
-| **State** | Zustand |
-
----
-
-## ⚡ Cài đặt & Chạy dự án
-
-### 1. Clone repository
-```bash
-git clone https://github.com/YOUR_USERNAME/mtruong-store.git
-cd mtruong-store
+```powershell
+npm ci
+Copy-Item .env.example .env
 ```
 
-### 2. Cài đặt dependencies
-```bash
-npm install
-```
+Điền các giá trị bắt buộc trong `.env`, tối thiểu là `DATABASE_URL`, `JWT_ACCESS_SECRET` và `JWT_REFRESH_SECRET`. Hai secret JWT phải có ít nhất 32 ký tự. Đặt `NEXT_PUBLIC_APP_URL` và `API_ALLOWED_ORIGINS` đúng origin ứng dụng đang chạy.
 
-### 3. Cấu hình biến môi trường
-```bash
-cp .env.example .env
-```
-Mở file `.env` và điền thông tin database MySQL của bạn.
+Khởi tạo database cho môi trường phát triển:
 
-### 4. Đồng bộ database
-```bash
-npx prisma db push
-npx prisma db seed
-```
-
-### 5. Khởi động server
-
-#### Chạy cục bộ
-```bash
+```powershell
+npx prisma migrate dev
+npm run db:seed
 npm run dev
 ```
 
-#### Chạy với Docker Compose
-```bash
-docker-compose up -d
-```
+Mở [http://localhost:3000](http://localhost:3000).
 
-Truy cập: `http://localhost:3000`
+> `npm run db:seed` xoá và tạo lại dữ liệu mẫu. Chỉ dùng cho database phát triển/demo, không chạy trên môi trường có dữ liệu thật.
 
----
+## Tài khoản demo
 
-## 🐳 Docker Deployment
-
-### Yêu cầu
-- Docker & Docker Compose
-
-### Cách sử dụng
-```bash
-# Khởi động toàn bộ stack (MySQL + App)
-docker-compose up -d
-
-# Xem logs
-docker-compose logs -f
-
-# Dừng services
-docker-compose down
-
-# Reset database
-docker-compose down -v
-docker-compose up -d
-```
-
-
-## 🗂️ Cấu trúc thư mục
-
-```
-src/
-├── app/
-│   ├── (admin)/admin/       # Khu vực quản trị Admin
-│   ├── (seller)/seller/     # Kênh người bán
-│   ├── (shop)/              # Trang mua sắm
-│   └── api/                 # REST API endpoints
-├── components/
-│   ├── admin/               # Components cho Admin
-│   ├── seller/              # Components cho Seller
-│   ├── profile/             # Components hồ sơ
-│   └── ui/                  # Components dùng chung
-├── lib/                     # Utilities (auth, db, validations)
-├── store/                   # Zustand state management
-└── styles/                  # Global CSS
-```
-
----
-
-## 👤 Tài khoản mặc định (sau khi seed)
+Các tài khoản dưới đây chỉ được tạo bởi seed và phải đổi/xoá trước khi triển khai công khai:
 
 | Vai trò | Email | Mật khẩu |
-|---------|-------|-----------|
-| Admin | admin@mtruong.store | admin123 |
-| User | user@mtruong.store | user123 |
+| --- | --- | --- |
+| Admin | `truongcri0101@gmail.com` | `123456` |
+| User | `user@mtruong.store` | `User@123456` |
+| Shipper | `shipper@mtruong.store` | `Shipper@123` |
 
----
+## Biến môi trường quan trọng
 
-## 📄 License
+Sao chép `.env.example` để xem toàn bộ biến. Những nhóm cấu hình chính:
 
-MIT License © 2026 MTRUONG-STORE
+- `DATABASE_URL`: chuỗi kết nối MySQL.
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `ACCESS_TOKEN_TTL`, `REFRESH_TOKEN_TTL`: xác thực và session.
+- `NEXT_PUBLIC_APP_URL`, `API_ALLOWED_ORIGINS`, `TRUST_PROXY`: URL triển khai và chính sách origin/proxy.
+- `STORAGE_PROVIDER`: dùng `local` mặc định hoặc `cloudinary`. Khi dùng Cloudinary, cung cấp `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+- `WEBHOOK_SECRET`, `WEBHOOK_TOLERANCE_SECONDS`: xác thực webhook thanh toán bằng HMAC.
+- `OUTBOX_*`: worker xử lý event và health/readiness.
+- `NOTIFICATION_*`: mặc định `log`; dùng `webhook` chỉ với endpoint HTTPS đã allowlist.
+
+Không commit `.env`, `.env.local` hoặc secret lên Git.
+
+## Lệnh thường dùng
+
+```powershell
+# Chất lượng mã
+npm run lint
+npm run typecheck
+npm test
+npm run build
+
+# Database
+npm run db:migrate
+npm run db:seed
+npm run db:seed-products
+npm run db:seed-vouchers
+
+# Kiểm tra nghiệp vụ/vận hành
+npm run money:static
+npm run money:audit
+npm run order-state:audit
+npm run outbox:reconcile
+npm run inventory:reconcile
+npm run security:cleanup
+```
+
+Integration test yêu cầu MySQL test riêng và biến `TEST_DATABASE_URL`; tên database phải kết thúc bằng `_test` để script từ chối chạy nhầm database thật:
+
+```powershell
+$env:TEST_DATABASE_URL = 'mysql://USER:PASSWORD@localhost:3306/mtruong_store_test'
+npm run test:integration
+```
+
+## Chạy production
+
+```powershell
+npm ci
+npx prisma migrate deploy
+npm run build
+npm start
+```
+
+`npm start` chạy Next.js server cùng transactional-outbox worker. Dùng process supervisor/container orchestrator để quản lý tiến trình và cấu hình health check:
+
+- `GET /api/health/live`: tiến trình đang hoạt động.
+- `GET /api/health/ready`: database, heartbeat worker và dead-letter critical đều đạt yêu cầu.
+
+Trước mỗi release, chạy:
+
+```powershell
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm audit --omit=dev --audit-level=high
+```
+
+Xem thêm [Production checklist](PRODUCTION_CHECKLIST.md), [Security policy](SECURITY.md), [Testing guide](TESTING.md), [Architecture](ARCHITECTURE.md) và các runbook trong `docs/`.
+
+## Lưu ý vận hành
+
+- `STORAGE_PROVIDER=s3` chưa được triển khai; chọn `local` (cần volume bền vững) hoặc `cloudinary`.
+- Provider thanh toán hiện là internal wallet; cần adapter provider thực, reconciliation và cấu hình webhook trước khi nhận thanh toán thật.
+- `NOTIFICATION_PROVIDER=log` không gửi email/SMS. Cấu hình webhook notification hoặc tích hợp provider trước khi dùng reset password/notification với người dùng thật.
+- Trong production phải dùng HTTPS, origin chính xác, secret ngẫu nhiên mạnh và tài khoản không phải demo.
+
+## Cấu trúc chính
+
+```text
+src/app/                 Routes giao diện và API route handlers
+src/lib/services/        Nghiệp vụ: auth, order, payment, inventory, outbox
+src/lib/security/        Origin policy và mutation guards
+src/components/          UI dùng chung và UI theo vai trò
+prisma/                  Schema, migrations, seed
+scripts/                 Worker, reconciliation và tác vụ vận hành
+tests/                   Unit, integration và e2e tests
+docs/                    Runbook và tài liệu nghiệp vụ
+```
+
+## License
+
+MIT

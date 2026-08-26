@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
+import SafeImage from '@/components/common/SafeImage';
 
 const menuItems = [
   { label: 'Hồ sơ cá nhân', icon: '👤', href: '/profile', color: '#8b5cf6' },
@@ -43,10 +44,10 @@ export default function ProfileSidebar() {
           background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', 
           display: 'flex', alignItems: 'center', justifyContent: 'center', 
           fontSize: '48px', color: 'white', fontWeight: 800, margin: '0 auto 20px',
-          boxShadow: '0 10px 25px rgba(245, 158, 11, 0.3)'
+          boxShadow: '0 10px 25px rgba(245, 158, 11, 0.3)', position: 'relative', overflow: 'hidden'
         }}>
           {user?.avatar && !avatarError
-            ? <img src={user.avatar} alt={user.name || 'Avatar'} onError={() => setAvatarError(true)} style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover' }} />
+            ? <SafeImage src={user.avatar} alt={user.name || 'Avatar'} fill sizes="100px" onImageError={() => setAvatarError(true)} style={{ borderRadius: '50%', objectFit: 'cover' }} />
             : (user?.name?.charAt(0) || 'T')}
         </div>
         <h2 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 8px' }}>{user?.name}</h2>

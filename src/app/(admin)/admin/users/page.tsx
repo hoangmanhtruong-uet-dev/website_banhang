@@ -32,7 +32,7 @@ function AdminUsersContent() {
   const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'admin' });
   const addToast = useToastStore(s => s.addToast);
 
-  const fetchUsers = async (silent = false) => {
+  const fetchUsers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const res = await fetch('/api/admin/users');
@@ -47,7 +47,7 @@ function AdminUsersContent() {
       if (!silent) setLoading(false);
     }
     return [];
-  };
+  }, [addToast]);
 
   const openDetail = useCallback((user: AdminUser) => {
     setDetailUser(user);
@@ -61,7 +61,7 @@ function AdminUsersContent() {
     router.replace('/admin/users', { scroll: false });
   }, [router]);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   useEffect(() => {
     const userId = searchParams.get('id');

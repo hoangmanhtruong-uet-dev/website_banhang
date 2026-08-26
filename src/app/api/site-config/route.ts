@@ -5,21 +5,29 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    let config = await prisma.siteConfig.findUnique({ where: { id: 'default' } });
-    if (!config) {
-      config = await prisma.siteConfig.create({ data: { id: 'default' } });
-    }
+    const config = await prisma.siteConfig.findUnique({ where: { id: 'default' } });
+    const effectiveConfig = config ?? {
+      siteName: 'MTRUONG-STORE',
+      hotline: '1900 8888',
+      contactEmail: 'support@mtruong.store',
+      address: '\u0056i\u1ec7t Nam',
+      codEnabled: true,
+      momoEnabled: true,
+      bankingEnabled: true,
+      vnpayEnabled: false,
+      maintenanceMode: false,
+    };
 
     return NextResponse.json({
-      siteName: config.siteName,
-      hotline: config.hotline,
-      contactEmail: config.contactEmail,
-      address: config.address,
-      codEnabled: config.codEnabled,
-      momoEnabled: config.momoEnabled,
-      bankingEnabled: config.bankingEnabled,
-      vnpayEnabled: config.vnpayEnabled,
-      maintenanceMode: config.maintenanceMode,
+      siteName: effectiveConfig.siteName,
+      hotline: effectiveConfig.hotline,
+      contactEmail: effectiveConfig.contactEmail,
+      address: effectiveConfig.address,
+      codEnabled: effectiveConfig.codEnabled,
+      momoEnabled: effectiveConfig.momoEnabled,
+      bankingEnabled: effectiveConfig.bankingEnabled,
+      vnpayEnabled: effectiveConfig.vnpayEnabled,
+      maintenanceMode: effectiveConfig.maintenanceMode,
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[SITE_CONFIG]', error);

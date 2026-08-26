@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import { env } from '@/config/env';
+import { logger } from '@/lib/logger';
+import { validateApiMutationOrigin } from '@/lib/security/origin-policy';
 
 const ACCESS_SECRET = new TextEncoder().encode(env.JWT_ACCESS_SECRET);
 
@@ -23,23 +25,27 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('auth-token')?.value;
 
-  // CSRF Protection for non-GET requests
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
-    const origin = request.headers.get('origin');
-    const referer = request.headers.get('referer');
-    const host = request.headers.get('host');
-
-    if (origin) {
-      const originHost = new URL(origin).host;
-      if (originHost !== host) {
-        return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
-      }
-    } else if (referer) {
-      const refererHost = new URL(referer).host;
-      if (refererHost !== host) {
-        return NextResponse.json({ error: 'Invalid referer' }, { status: 403 });
-      }
-    }
+  // Cookie-authenticated browser mutations require this independently of CORS.
+  const originDecision = validateApiMutationOrigin({
+    method: request.method,
+    pathname,
+    url: request.url,
+    headers: request.headers,
+  }, {
+    NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    API_ALLOWED_ORIGINS: process.env.API_ALLOWED_ORIGINS,
+    TRUST_PROXY: process.env.TRUST_PROXY,
+  });
+  if (!originDecision.allowed) {
+    logger.warn('security.api_origin_rejected', {
+      method: request.method,
+      pathname,
+      code: originDecision.code,
+    });
+    return NextResponse.json({
+      error: { code: originDecision.code, message: originDecision.message },
+    }, { status: originDecision.status });
   }
 
   // Bảo vệ route admin - verify JWT thực
@@ -115,5 +121,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/profile/:path*', '/seller/:path*', '/shipper/:path*', '/cart/:path*', '/checkout/:path*'],
+  matcher: ['/api/:path*', '/admin/:path*', '/profile/:path*', '/seller/:path*', '/shipper/:path*', '/cart/:path*', '/checkout/:path*'],
 };

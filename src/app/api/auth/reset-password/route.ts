@@ -4,6 +4,7 @@ import { PasswordResetService } from '@/lib/services/password-reset.service';
 import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
 import { PasswordService } from '@/lib/services/password.service';
 import { z } from 'zod';
+import { getRateLimitIdentity } from '@/lib/client-ip';
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1),
@@ -12,10 +13,9 @@ const resetPasswordSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
-    const limiter = await rateLimit(`reset-password:${ip}`, { windowMs: 15 * 60 * 1000, max: 5 });
+    const limiter = await rateLimit(getRateLimitIdentity(req, 'reset-password'), { windowMs: 15 * 60 * 1000, max: 5 });
     if (!limiter.success) {
-      return getRateLimitResponse(limiter.reset);
+      return getRateLimitResponse(limiter);
     }
 
     const body = await req.json();

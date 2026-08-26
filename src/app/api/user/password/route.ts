@@ -53,7 +53,7 @@ export async function PUT(req: Request) {
     ]);
 
     return NextResponse.json({ message: 'Đã đổi mật khẩu thành công' });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

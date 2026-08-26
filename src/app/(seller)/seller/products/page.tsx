@@ -1,6 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/store/authStore';
+import { useCallback, useEffect, useState } from 'react';
 import { useToastStore } from '@/components/ui/Toast';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/utils';
@@ -10,7 +9,7 @@ export default function SellerProductsPage() {
   const [loading, setLoading] = useState(true);
   const addToast = useToastStore(s => s.addToast);
 
-  const fetchSellerProducts = async () => {
+  const fetchSellerProducts = useCallback(async () => {
     try {
       const res = await fetch('/api/seller/products');
       const data = await res.json();
@@ -20,9 +19,9 @@ export default function SellerProductsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchSellerProducts(); }, []);
+  useEffect(() => { fetchSellerProducts(); }, [fetchSellerProducts]);
 
   const deleteProduct = async (id: string) => {
     if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;

@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useToastStore } from '@/components/ui/Toast';
+import SafeImage from '@/components/common/SafeImage';
+import { DEFAULT_PRODUCT_IMAGE } from '@/lib/product-image';
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -78,6 +80,8 @@ export default function EditProductPage() {
         const file = files[i];
         const data = new FormData();
         data.append('file', file);
+        data.append('purpose', 'product');
+        data.append('resourceId', String(id));
         
         const res = await fetch('/api/upload', {
           method: 'POST',
@@ -188,7 +192,7 @@ export default function EditProductPage() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '15px' }}>
               {images.map((url, index) => (
                 <div key={index} style={{ width: '100px', height: '100px', borderRadius: '12px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <SafeImage src={url} fallbackSrc={DEFAULT_PRODUCT_IMAGE} alt={'Product preview ' + (index + 1)} fill sizes="100px" style={{ objectFit: 'cover' }} />
                   <button
                     type="button"
                     onClick={() => setImages(images.filter((_, i) => i !== index))}

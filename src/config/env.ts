@@ -1,4 +1,19 @@
 import { z } from 'zod';
+import { parseRefreshTokenTtlSeconds } from './refresh-token';
+
+const refreshTokenTtlSchema = z.string().optional().transform((value, context) => {
+  try {
+    return parseRefreshTokenTtlSeconds(value, process.env.NODE_ENV);
+  } catch (error) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: error instanceof Error ? error.message : 'Invalid REFRESH_TOKEN_TTL',
+    });
+    return z.NEVER;
+  }
+});
+
+const booleanString = z.enum(['true', 'false']).transform(value => value === 'true');
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
@@ -22,15 +37,36 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional(),
   CLOUDINARY_FOLDER: z.string().default('mtruong-store'),
   
-  // TTLs (in seconds or ms depending on usage, here we use strings for ms or numbers for seconds)
+  // Access token TTL uses jose duration syntax; refresh token TTL is integer seconds.
   ACCESS_TOKEN_TTL: z.string().default('15m'),
-  REFRESH_TOKEN_TTL: z.string().default('7d'),
+  REFRESH_TOKEN_TTL: refreshTokenTtlSchema,
   
   // Upload
-  MAX_FILE_SIZE: z.coerce.number().default(5 * 1024 * 1024),
+  MAX_FILE_SIZE: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+  UPLOAD_MAX_FILES_PER_REQUEST: z.coerce.number().int().positive().default(5),
+  UPLOAD_DAILY_FILE_LIMIT: z.coerce.number().int().positive().default(50),
+  UPLOAD_DAILY_BYTE_LIMIT: z.coerce.number().int().positive().default(50 * 1024 * 1024),
+  UPLOAD_REQUEST_LIMIT: z.coerce.number().int().positive().default(5),
+
+  // Forwarded client IP headers are ignored unless a trusted proxy is configured.
+  TRUST_PROXY: booleanString.default('false'),
+  RATE_LIMIT_TRUST_PROXY_HOPS: z.coerce.number().int().min(1).max(10).default(1),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const isProductionBuild = process.env.NEXT_PHASE === 'phase-production-build';
+// Next imports route modules while compiling. Supply inert values only for that
+// compilation phase so runtime secrets are neither required nor baked into the
+// image; the real server process still validates its own environment below.
+const buildEnvironment = isProductionBuild
+  ? {
+      ...process.env,
+      DATABASE_URL: process.env.DATABASE_URL ?? 'mysql://build:build@localhost:3306/build',
+      JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET ?? 'build-only-access-secret-at-least-32-characters',
+      JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? 'build-only-refresh-secret-at-least-32-characters',
+      REFRESH_TOKEN_TTL: process.env.REFRESH_TOKEN_TTL ?? '604800',
+    }
+  : process.env;
+const parsed = envSchema.safeParse(buildEnvironment);
 
 if (!parsed.success) {
   console.error('❌ Invalid environment variables:', parsed.error.flatten().fieldErrors);

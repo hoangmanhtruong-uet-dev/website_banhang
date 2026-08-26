@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { formatPrice } from '@/lib/utils';
 import { multiplyMoneyByQuantity } from '@/lib/utils/client-money';
@@ -60,6 +60,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
 export default function AdminOrderDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const orderId = params.id;
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -67,9 +68,9 @@ export default function AdminOrderDetailPage() {
   const [trackingNumber, setTrackingNumber] = useState('');
   const addToast = useToastStore((s) => s.addToast);
 
-  const fetchOrderDetail = async () => {
+  const fetchOrderDetail = useCallback(async () => {
     try {
-      const res = await fetch(`/api/orders/${params.id}`);
+      const res = await fetch(`/api/orders/${orderId}`);
       if (!res.ok) throw new Error('Không thể tải chi tiết đơn hàng');
       const data = await res.json();
       setOrder(data);
@@ -80,16 +81,16 @@ export default function AdminOrderDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast, orderId]);
 
   useEffect(() => {
     fetchOrderDetail();
-  }, [params.id]);
+  }, [fetchOrderDetail]);
 
   const handleUpdateStatus = async () => {
     setUpdating(true);
     try {
-      const res = await fetch(`/api/admin/orders/${params.id}/status`, {
+      const res = await fetch(`/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
         body: JSON.stringify({ status, trackingNumber }),

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
-import ProfileSidebar from '@/components/profile/ProfileSidebar';
+import SafeImage from '@/components/common/SafeImage';
 
 export default function ProfilePage() {
   const user = useAuthStore(s => s.user);
@@ -173,12 +173,13 @@ export default function ProfilePage() {
                 marginBottom: '20px',
                 border: '2px dashed rgba(255,255,255,0.2)',
                 overflow: 'hidden',
+                position: 'relative',
               }}
             >
               {avatarPreview ? (
-                <img src={avatarPreview} alt="Ảnh đại diện mới" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                <SafeImage src={avatarPreview} alt="Ảnh đại diện mới" fill sizes="100px" style={{ borderRadius: '50%', objectFit: 'cover' }} />
               ) : user?.avatar && !avatarLoadError ? (
-                <img src={user.avatar} alt={user.name || 'Avatar'} onError={() => setAvatarLoadError(true)} style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit: 'cover' }} />
+                <SafeImage src={user.avatar} alt={user.name || 'Avatar'} fill sizes="100px" onImageError={() => setAvatarLoadError(true)} style={{ borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
                 '👤'
               )}
@@ -206,6 +207,7 @@ export default function ProfilePage() {
                   try {
                     const fd = new FormData();
                     fd.append('file', file);
+                    fd.append('purpose', 'avatar');
 
                     const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
                     const upData = await upRes.json();

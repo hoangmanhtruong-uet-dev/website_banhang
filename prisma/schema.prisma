@@ -112,6 +112,9 @@ model User {
   inventoryMovements  InventoryMovement[]  @relation("InventoryMovementActor")
   deliveryAttempts    DeliveryAttempt[]    @relation("DeliveryAttemptShipper")
   codCollections      CodCollection[]      @relation("CodCollector")
+  uploadAssets        UploadAsset[]
+  uploadQuotaBuckets  UploadQuotaBucket[]
+  uploadReservations  UploadReservation[]
 
   @@index([email])
   @@index([code])
@@ -848,4 +851,71 @@ model WebhookEvent {
   @@unique([provider, providerEventId])
   @@index([status, createdAt])
   @@map("webhook_event")
+}
+
+model RateLimitBucket {
+  keyHash     String   @id @db.Char(64)
+  count       Int      @default(0)
+  windowStart DateTime
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt], map: "rate_limit_expires_idx")
+  @@map("rate_limit_bucket")
+}
+
+model UploadQuotaBucket {
+  userId       String
+  periodStart  DateTime
+  requestCount Int      @default(0)
+  fileCount    Int      @default(0)
+  bytesUsed    BigInt   @default(0)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "upload_quota_user_fk")
+
+  @@id([userId, periodStart])
+  @@index([expiresAt], map: "upload_quota_expires_idx")
+  @@map("upload_quota_bucket")
+}
+
+model UploadReservation {
+  id               String   @id @default(cuid())
+  userId           String
+  quotaPeriodStart DateTime
+  fileCount        Int
+  bytesReserved    BigInt
+  storageKeys      String?  @db.Text
+  status           String   @default("RESERVED") @db.VarChar(32)
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "upload_reservation_user_fk")
+
+  @@index([status, expiresAt], map: "upload_reservation_cleanup_idx")
+  @@index([userId, createdAt], map: "upload_reservation_user_created_idx")
+  @@map("upload_reservation")
+}
+
+model UploadAsset {
+  id           String   @id @default(cuid())
+  userId       String
+  storageKey   String   @unique(map: "upload_asset_storage_key") @db.VarChar(255)
+  url          String   @unique(map: "upload_asset_url_key") @db.VarChar(512)
+  purpose      String   @db.VarChar(32)
+  resourceId   String?  @db.VarChar(191)
+  originalName String   @db.VarChar(255)
+  mimeType     String   @db.VarChar(64)
+  sizeBytes    BigInt
+  status       String   @default("AVAILABLE") @db.VarChar(32)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "upload_asset_user_fk")
+
+  @@index([userId, purpose, status], map: "upload_asset_owner_purpose_idx")
+  @@index([resourceId, purpose], map: "upload_asset_resource_idx")
+  @@index([status, createdAt], map: "upload_asset_cleanup_idx")
+  @@map("upload_asset")
 }

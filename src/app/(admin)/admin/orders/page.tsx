@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { formatPrice } from '@/lib/utils';
 import Link from 'next/link'; // Import Link
 import { useToastStore } from '@/components/ui/Toast';
@@ -9,7 +9,7 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const addToast = useToastStore(s => s.addToast);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/orders');
       const data = await res.json();
@@ -20,7 +20,7 @@ export default function AdminOrdersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast]);
 
   // Hàm lấy màu sắc cho trạng thái
   const getStatusColor = (status: string) => {
@@ -55,7 +55,7 @@ export default function AdminOrdersPage() {
     }
   };
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   return (
     <div>

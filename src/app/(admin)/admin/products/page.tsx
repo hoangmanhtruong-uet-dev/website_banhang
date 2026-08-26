@@ -1,7 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { formatPrice } from '@/lib/utils';
 import { useToastStore } from '@/components/ui/Toast';
+import SafeImage from '@/components/common/SafeImage';
+import { DEFAULT_PRODUCT_IMAGE } from '@/lib/product-image';
 
 export default function AdminProductsPage() {
   const [activeTab, setActiveTab] = useState<'products' | 'categories'>('products');
@@ -11,7 +13,7 @@ export default function AdminProductsPage() {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const addToast = useToastStore(s => s.addToast);
 
-  const fetchAllProducts = async () => {
+  const fetchAllProducts = useCallback(async () => {
     try {
       const res = await fetch('/api/products');
       const data = await res.json();
@@ -21,9 +23,9 @@ export default function AdminProductsPage() {
     } finally {
       setLoadingProducts(false);
     }
-  };
+  }, [addToast]);
 
-  const fetchAllCategories = async () => {
+  const fetchAllCategories = useCallback(async () => {
     try {
       const res = await fetch('/api/categories');
       const data = await res.json();
@@ -33,12 +35,12 @@ export default function AdminProductsPage() {
     } finally {
       setLoadingCategories(false);
     }
-  };
+  }, [addToast]);
 
   useEffect(() => {
     fetchAllProducts();
     fetchAllCategories();
-  }, []);
+  }, [fetchAllCategories, fetchAllProducts]);
 
   const toggleStock = async (id: string, currentStatus: boolean) => {
     try {
@@ -224,8 +226,7 @@ export default function AdminProductsPage() {
                   <td style={{ padding: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                       {p.image ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={p.image} alt={p.name} style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '6px' }} />
+                        <SafeImage src={p.image} fallbackSrc={DEFAULT_PRODUCT_IMAGE} alt={p.name} width={32} height={32} sizes="32px" style={{ objectFit: 'cover', borderRadius: '6px' }} />
                       ) : (
                         <span style={{ fontSize: '30px' }}>{p.emoji || '📦'}</span>
                       )}

@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth';
 import { generateNextProductId } from '@/lib/idGenerator';
 import { serializeMoneyFields } from '@/lib/utils/money';
 import { getCategoryProductImage } from '@/lib/product-image';
+import { claimProductUploads, normalizeProductImageUrls, UploadAssetAuthorizationError, UploadAssetValidationError } from '@/lib/services/upload-asset.service';
 
 export async function GET(req: Request) {
   try {
@@ -42,14 +43,24 @@ export async function POST(req: Request) {
     const input = parsed.data;
     const code = await generateNextProductId();
     const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
-    const product = await prisma.product.create({ data: {
+    const imageUrls = normalizeProductImageUrls(
+      typeof input.image === 'string' && input.image.trim() ? [input.image] : [],
+    );
+    const product = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({ data: {
       code, sku: input.sku ?? `SKU-${code}`, slug, name: input.name, price: input.price, originalPrice: input.originalPrice ?? null,
       currency: input.currency, description: input.description, categoryId: input.categoryId,
       image: input.image ?? null, emoji: '📦', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      rating: 0, reviews: 0, inStock: true,
-    } });
+        rating: 0, reviews: 0, inStock: true,
+      } });
+      await claimProductUploads(tx, session.userId, created.id, imageUrls);
+      return created;
+    });
     return NextResponse.json(serializeMoneyFields(product), { status: 201 });
   } catch (error) {
+    if (error instanceof UploadAssetAuthorizationError || error instanceof UploadAssetValidationError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
     console.error('[POST /api/products]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }

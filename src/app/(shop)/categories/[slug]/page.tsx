@@ -106,7 +106,7 @@ export default function CategoryDetailPage() {
 
       {filteredProducts.length > 0 ? (
         <div className="product-grid">
-          {filteredProducts.map((product, index) => <ProductCard key={product.id} product={product} index={index} />)}
+          {filteredProducts.map((product, index) => <ProductCard key={product.id} product={product} index={index} imagePriority={index === 0} />)}
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-muted)' }}>Không có sản phẩm phù hợp.</div>

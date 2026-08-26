@@ -66,13 +66,17 @@ test('production error response hides stack trace and internal message', () => {
 });
 
 test('upload rejects spoofed MIME by magic bytes and disallows script-capable formats', () => {
-  const source = read('src/app/api/upload/route.ts');
+  const route = read('src/app/api/upload/route.ts');
+  const handler = read('src/lib/secure-upload-handler.ts');
+  const policy = read('src/lib/upload-policy.ts');
 
-  assert.match(source, /StorageService\.validateFile\(buffer,\s*file\.type\)/);
-  assert.doesNotMatch(source, /image\/svg\+xml|text\/html|application\/javascript/);
+  assert.match(route, /POST = secureUploadPost/);
+  assert.match(handler, /StorageService\.validateFile\(buffer,\s*file\.type\)/);
+  assert.doesNotMatch(policy, /image\/svg\+xml|text\/html|application\/javascript/);
   assert.match(read('src/lib/services/storage.service.ts'), /randomUUID\(\)/);
-  assert.match(source, /formData\.get\('file'\)/);
-  assert.match(source, /MAX_FILE_SIZE\s*=\s*5 \* 1024 \* 1024/);
+  assert.match(handler, /formData\.getAll\('file'\)/);
+  assert.match(handler, /MAX_FILE_SIZE\s*=\s*5 \* 1024 \* 1024/);
+  assert.match(policy, /declaredRiffLength === buffer\.length/);
 });
 
 test('mass assignment sensitive order fields are server-owned', () => {

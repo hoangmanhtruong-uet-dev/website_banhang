@@ -1,58 +1,30 @@
 import { NextResponse } from 'next/server';
+import { createRateLimiter, databaseRateLimitBackend, type RateLimitResult } from '@/lib/rate-limit-backend';
 
-interface RateLimitConfig {
-  windowMs: number;
-  max: number;
-}
+export type { RateLimitBackend, RateLimitConfig, RateLimitResult } from '@/lib/rate-limit-backend';
+export { createRateLimiter, databaseRateLimitBackend, hashRateLimitIdentifier } from '@/lib/rate-limit-backend';
 
-const memoryStore = new Map<string, { count: number; resetTime: number }>();
+export const rateLimit = createRateLimiter(databaseRateLimitBackend);
 
-export async function rateLimit(
-  identifier: string,
-  config: RateLimitConfig = { windowMs: 60 * 1000, max: 10 }
-) {
-  const now = Date.now();
-  const record = memoryStore.get(identifier);
-
-  if (!record || now > record.resetTime) {
-    const newRecord = { count: 1, resetTime: now + config.windowMs };
-    memoryStore.set(identifier, newRecord);
-    return {
-      success: true,
-      limit: config.max,
-      remaining: config.max - 1,
-      reset: newRecord.resetTime,
-    };
-  }
-
-  record.count++;
-  
-  if (record.count > config.max) {
-    return {
-      success: false,
-      limit: config.max,
-      remaining: 0,
-      reset: record.resetTime,
-    };
-  }
-
-  return {
-    success: true,
-    limit: config.max,
-    remaining: config.max - record.count,
-    reset: record.resetTime,
+export function getRateLimitResponse(resultOrReset: RateLimitResult | number) {
+  const result = typeof resultOrReset === 'number' ? undefined : resultOrReset;
+  const reset = typeof resultOrReset === 'number' ? resultOrReset : resultOrReset.reset;
+  const backendUnavailable = result?.reason === 'backend_unavailable';
+  const retryAfter = result?.retryAfter ?? Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+  const code = backendUnavailable ? 'RATE_LIMIT_BACKEND_UNAVAILABLE' : 'RATE_LIMIT_EXCEEDED';
+  const headers: Record<string, string> = {
+    'Retry-After': retryAfter.toString(),
+    'X-RateLimit-Reset': Math.ceil(reset / 1000).toString(),
   };
-}
-
-export function getRateLimitResponse(reset: number) {
-  const retryAfter = Math.ceil((reset - Date.now()) / 1000);
+  if (result) {
+    headers['X-RateLimit-Limit'] = result.limit.toString();
+    headers['X-RateLimit-Remaining'] = result.remaining.toString();
+  }
   return NextResponse.json(
-    { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
+    { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.', code },
     {
-      status: 429,
-      headers: {
-        'Retry-After': retryAfter.toString(),
-      },
+      status: backendUnavailable ? 503 : 429,
+      headers,
     }
   );
 }

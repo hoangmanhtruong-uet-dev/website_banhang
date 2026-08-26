@@ -6,15 +6,15 @@ import { AuthService } from '@/lib/services/auth.service';
 import { SessionService } from '@/lib/services/session.service';
 import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
 import { PasswordService } from '@/lib/services/password.service';
+import { getRateLimitIdentity, getTrustedClientIp } from '@/lib/client-ip';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
-    const limiter = await rateLimit(`register:${ip}`, { windowMs: 60 * 60 * 1000, max: 3 });
+    const limiter = await rateLimit(getRateLimitIdentity(req, 'register'), { windowMs: 60 * 60 * 1000, max: 3 });
     if (!limiter.success) {
-      return getRateLimitResponse(limiter.reset);
+      return getRateLimitResponse(limiter);
     }
 
     const body = await req.json();
@@ -50,23 +50,17 @@ export async function POST(req: Request) {
     });
 
     const userAgent = req.headers.get('user-agent') || undefined;
-    const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0] || undefined;
+    const ipAddress = getTrustedClientIp(req);
 
-    const { refreshToken } = await SessionService.createSession(user.id, userAgent, ipAddress);
+    const { refreshToken, expiresAt } = await SessionService.createSession(user.id, userAgent, ipAddress);
 
     const response = NextResponse.json(
       { message: 'Đăng ký thành công', user: { id: user.id, name: user.name, email: user.email, role: user.role } },
       { status: 201 }
     );
 
-    AuthService.setAuthCookies(response, accessToken, refreshToken);
-    response.cookies.set('user-role', user.role, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60,
-      path: '/',
-    });
+    AuthService.setAuthCookies(response, accessToken, refreshToken, expiresAt);
+    AuthService.setUserRoleCookie(response, user.role, expiresAt);
 
     return response;
   } catch (error) {

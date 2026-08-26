@@ -5,7 +5,8 @@ import { getAvailableStock, useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
 import { compareMoneyStrings, percentageOff } from '@/lib/utils/client-money';
 import { useState } from 'react';
-import { getProductImage } from '@/lib/product-image';
+import { DEFAULT_PRODUCT_IMAGE, getProductImage } from '@/lib/product-image';
+import SafeImage from '@/components/common/SafeImage';
 import { useAuthStore } from '@/store/authStore';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -20,7 +21,13 @@ function getBadgeClass(badge?: string) {
   return 'badge-new';
 }
 
-export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
+type ProductCardProps = {
+  product: Product;
+  index?: number;
+  imagePriority?: boolean;
+};
+
+export default function ProductCard({ product, index = 0, imagePriority = false }: ProductCardProps) {
   const addItem = useCartStore(s => s.addItem);
   const { isAuthenticated, isLoading } = useAuthStore();
   const router = useRouter();
@@ -49,11 +56,14 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
       style={{ display:'block', overflow:'hidden', height:'100%' }}>
       <div style={{ animation:`fadeInUp 0.6s ease-out ${index * 0.08}s forwards`, opacity:0, display:'flex', flexDirection:'column', height:'100%' }}>
         <div className="product-image" style={{ background: product.gradient, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img
+          <SafeImage
             src={image}
             alt={product.name}
-            loading="lazy"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            fallbackSrc={DEFAULT_PRODUCT_IMAGE}
+            fill
+            priority={imagePriority}
+            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 31vw, 280px"
+            style={{ objectFit: 'cover' }}
           />
           {product.badge && (
             <span className={`badge ${getBadgeClass(product.badge)}`}

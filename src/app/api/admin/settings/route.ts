@@ -20,12 +20,8 @@ const DEFAULT_CONFIG = {
   lastBackupAt: null as Date | null,
 };
 
-async function getOrCreateConfig() {
-  let config = await prisma.siteConfig.findUnique({ where: { id: 'default' } });
-  if (!config) {
-    config = await prisma.siteConfig.create({ data: { id: 'default' } });
-  }
-  return config;
+async function getConfig() {
+  return (await prisma.siteConfig.findUnique({ where: { id: 'default' } })) ?? DEFAULT_CONFIG;
 }
 
 export async function GET() {
@@ -35,7 +31,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const config = await getOrCreateConfig();
+    const config = await getConfig();
     return NextResponse.json(config, {
       headers: { 'Cache-Control': 'no-store' },
     });
@@ -111,7 +107,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ error: 'Hành động không hợp lệ' }, { status: 400 });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }
