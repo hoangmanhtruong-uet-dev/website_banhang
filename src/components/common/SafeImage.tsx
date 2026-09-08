@@ -2,7 +2,7 @@
 
 import Image, { type ImageProps } from 'next/image';
 import { useEffect, useState } from 'react';
-import { resolveAllowedImageSource } from '@/lib/image-source';
+import { resolveAllowedImageSource } from '@/lib/upload/image-source';
 
 type SafeImageProps = Omit<ImageProps, 'src' | 'onError'> & {
   src?: string | null;

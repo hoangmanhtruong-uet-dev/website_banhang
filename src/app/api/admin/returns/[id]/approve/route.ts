@@ -1,9 +1,9 @@
 import { type NextRequest } from 'next/server';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { ValidationError } from '@/lib/errors';
 import prisma from '@/lib/db';
-import { ORDER_STATUS, OrderStateService } from '@/lib/services/order-state.service';
+import { ORDER_STATUS, OrderStateService } from '@/lib/services/order/order-state.service';
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   return createHandler(async (request: NextRequest) => {
     const actor = await requireAdmin(); const key = request.headers.get('idempotency-key');

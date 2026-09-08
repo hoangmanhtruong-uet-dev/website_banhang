@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import { serializeMoneyFields } from '@/lib/utils/money';
 
 type Params = { params: Promise<{ id: string }> };

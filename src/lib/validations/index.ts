@@ -63,7 +63,10 @@ export const orderRequestSchema = orderBaseSchema.extend({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng nhập mã PIN giao dịch', path: ['paymentPin'] });
   }
 });
-export const paymentRequestSchema = z.object({ orderId: z.string().min(1) });
+export const paymentRequestSchema = z.object({
+  orderId: z.string().min(1),
+  paymentPin: z.string().regex(/^\d{6}$/, 'Mã PIN phải gồm đúng 6 chữ số'),
+}).strict();
 export const refundRequestSchema = z.object({
   paymentId: z.string().min(1),
   amount: moneyInputSchema({ allowZero: false, field: 'amount' }),

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError } from '@/lib/errors';
 import { IdempotencyService } from '@/lib/services/idempotency.service';
-import { requireIdempotencyKey } from '@/lib/idempotency';
-import { RefundService } from '@/lib/services/payment.service';
+import { requireIdempotencyKey } from '@/lib/idempotency/idempotency';
+import { RefundService } from '@/lib/services/payment/payment.service';
 import { refundRequestSchema } from '@/lib/validations';
 
 export const POST = createHandler(async (req: NextRequest) => {

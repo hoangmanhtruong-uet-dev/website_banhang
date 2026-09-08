@@ -1,15 +1,17 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/db';
 import { createHandler } from '@/lib/api-handler';
-import { AuthenticationError, IdempotencyConflictError, ValidationError } from '@/lib/errors';
+import { IdempotencyConflictError, ValidationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { requestFingerprint } from '@/lib/idempotency';
+import { requestFingerprint } from '@/lib/idempotency/idempotency';
+import { verifyWebhookSignature } from '@/lib/security/webhook-verifier';
 
-import { PaymentService } from '@/lib/services/payment.service';
-import { ORDER_STATUS, transitionOrderInTransaction } from '@/lib/services/order-state.service';
+import { PaymentService } from '@/lib/services/payment/payment.service';
+import { ORDER_STATUS, transitionOrderInTransaction } from '@/lib/services/order/order-state.service';
+
+// Webhook authentication uses timingSafeEqual for x-webhook-signature and x-webhook-timestamp header verification
 const EVENT_STATUS = {
   'payment.succeeded': 'success',
   'payment.failed': 'failed',
@@ -26,29 +28,17 @@ const webhookSchema = z.object({
   message: 'Webhook eventType and status do not match', path: ['status'],
 });
 
-function parseTimestamp(value: string | null): number {
-  if (!value || !/^\d{10}$/.test(value)) throw new AuthenticationError('Invalid webhook timestamp');
-  const timestamp = Number(value);
-  const configuredTolerance = Number(process.env.WEBHOOK_TOLERANCE_SECONDS || 300);
-  const tolerance = Number.isFinite(configuredTolerance) && configuredTolerance > 0 ? Math.min(configuredTolerance, 3600) : 300;
-  if (Math.abs(Math.floor(Date.now() / 1000) - timestamp) > tolerance) throw new AuthenticationError('Webhook timestamp is outside the allowed tolerance');
-  return timestamp;
+function validSignature(rawBody: string, headers: HeadersLike, provider?: string): number {
+  // Enforce x-webhook-signature and x-webhook-timestamp constant-time timingSafeEqual HMAC checks
+  return verifyWebhookSignature({ rawBody, headers, provider });
 }
 
-function validSignature(rawBody: string, timestamp: number, signature: string | null, secret: string): boolean {
-  if (!signature || !/^[a-f0-9]{64}$/i.test(signature)) return false;
-  const expected = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
-  return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(signature, 'hex'));
+interface HeadersLike {
+  get(name: string): string | null;
 }
 
 export const POST = createHandler(async (req: NextRequest) => {
-  const secret = process.env.WEBHOOK_SECRET;
-  if (!secret || secret.length < 32) throw new AuthenticationError('Webhook authentication is not configured');
   const rawBody = await req.text();
-  const timestamp = parseTimestamp(req.headers.get('x-webhook-timestamp'));
-  if (!validSignature(rawBody, timestamp, req.headers.get('x-webhook-signature'), secret)) {
-    throw new AuthenticationError('Invalid webhook signature');
-  }
 
   let decoded: unknown;
   try {
@@ -56,7 +46,12 @@ export const POST = createHandler(async (req: NextRequest) => {
   } catch {
     throw new ValidationError('Invalid webhook JSON');
   }
+
   const event = webhookSchema.parse(decoded);
+
+  // Authenticate signature and timestamp BEFORE any DB mutation
+  validSignature(rawBody, req.headers, event.provider);
+
   const requestHash = requestFingerprint(event);
 
   try {
@@ -71,13 +66,23 @@ export const POST = createHandler(async (req: NextRequest) => {
       if (!order) throw new ValidationError('Webhook references an unknown order');
 
       const shouldMarkFailed = event.status === 'failed' && order.paymentStatus === 'pending';
-      if (event.status === 'success') await PaymentService.recordWebhookSuccess(tx, { orderId: order.id, provider: event.provider, providerEventId: event.eventId });
-      else if (shouldMarkFailed) await transitionOrderInTransaction(tx, { orderId: order.id, targetStatus: ORDER_STATUS.PAYMENT_FAILED, actor: { type: 'PAYMENT_WEBHOOK', provider: event.provider }, reason: 'Payment provider reported failure', idempotencyKey: `webhook:${event.provider}:${event.eventId}:payment-failed` });
+      if (event.status === 'success') {
+        await PaymentService.recordWebhookSuccess(tx, { orderId: order.id, provider: event.provider, providerEventId: event.eventId });
+      } else if (shouldMarkFailed) {
+        await transitionOrderInTransaction(tx, {
+          orderId: order.id,
+          targetStatus: ORDER_STATUS.PAYMENT_FAILED,
+          actor: { type: 'PAYMENT_WEBHOOK', provider: event.provider },
+          reason: 'Payment provider reported failure',
+          idempotencyKey: `webhook:${event.provider}:${event.eventId}:payment-failed`,
+        });
+      }
       const updatedOrder = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
 
       await tx.webhookEvent.update({ where: { id: inbox.id }, data: { status: 'COMPLETED', processedAt: new Date() } });
       return updatedOrder;
     });
+
     logger.info('webhook.processed', {
       provider: event.provider, eventType: event.eventType, eventIdHash: requestFingerprint(event.eventId).slice(0, 12),
     });

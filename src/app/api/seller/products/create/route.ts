@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession, canAccessSeller } from '@/lib/auth';
+import { getSession, canAccessSeller } from '@/lib/auth/auth';
 import { generateNextProductId } from '@/lib/idGenerator';
 import { productSchema } from '@/lib/validations';
 import { serializeMoneyFields } from '@/lib/utils/money';
-import { claimProductUploads, normalizeProductImageUrls, UploadAssetAuthorizationError, UploadAssetValidationError } from '@/lib/services/upload-asset.service';
+import { claimProductUploads, normalizeProductImageUrls, UploadAssetAuthorizationError, UploadAssetValidationError } from '@/lib/services/upload/upload-asset.service';
 
 export async function POST(req: Request) {
   try {

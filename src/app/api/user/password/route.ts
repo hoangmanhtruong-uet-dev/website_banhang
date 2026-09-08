@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 

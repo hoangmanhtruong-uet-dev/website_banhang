@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { type NextRequest } from 'next/server';
 import prisma from '@/lib/db';
-import { canAccessSeller, getSession } from '@/lib/auth';
+import { canAccessSeller, getSession } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthorizationError, ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import { inventoryAdjustmentSchema } from '@/lib/validations';

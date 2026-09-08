@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 import { IdempotencyConflictError, IdempotencyStateError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { serializeMoneyFields } from '@/lib/utils/money';
-import { hashForLog, requestFingerprint } from '@/lib/idempotency';
+import { hashForLog, requestFingerprint } from '@/lib/idempotency/idempotency';
 
 export type TransactionClient = Prisma.TransactionClient;
 

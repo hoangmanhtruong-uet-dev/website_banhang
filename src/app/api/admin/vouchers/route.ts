@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import { Money, serializeMoneyFields } from '@/lib/utils/money';
 import { voucherMoneySchema } from '@/lib/validations';
 

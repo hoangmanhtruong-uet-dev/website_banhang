@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { orderRequestSchema } from '@/lib/validations';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import prisma from '@/lib/db';
-import { OrderService } from '@/lib/services/order.service';
-import { PasswordService } from '@/lib/services/password.service';
+import { OrderService } from '@/lib/services/order/order.service';
+import { verifyPaymentPinOrThrow } from '@/lib/security/payment-pin-policy';
 import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError, ValidationError } from '@/lib/errors';
 import { IdempotencyService } from '@/lib/services/idempotency.service';
-import { requireIdempotencyKey } from '@/lib/idempotency';
+import { requireIdempotencyKey } from '@/lib/idempotency/idempotency';
 
 export const GET = createHandler(async () => {
   const session = await getSession();
@@ -23,16 +23,7 @@ export const POST = createHandler(async (req: NextRequest) => {
   const { paymentPin, bankId, paymentPhone, ...orderInput } = parsed;
 
   if (parsed.paymentMethod !== 'COD') {
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { paymentPinHash: true },
-    });
-    if (!user?.paymentPinHash) {
-      throw new ValidationError('Bạn chưa thiết lập mã PIN giao dịch. Vui lòng vào trang Ngân hàng để tạo PIN.');
-    }
-    if (!paymentPin || !await PasswordService.verify(paymentPin, user.paymentPinHash)) {
-      throw new AuthenticationError('Mã PIN giao dịch không đúng');
-    }
+    await verifyPaymentPinOrThrow(session.userId, paymentPin);
   }
 
   if (parsed.paymentMethod === 'Banking') {

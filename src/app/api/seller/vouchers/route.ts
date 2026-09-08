@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import prisma from '@/lib/db';
-import { canAccessSeller, getSession } from '@/lib/auth';
+import { canAccessSeller, getSession } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthorizationError, ConflictError } from '@/lib/errors';
 import { sellerVoucherCreateSchema } from '@/lib/validations';

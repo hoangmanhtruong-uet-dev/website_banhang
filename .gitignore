@@ -33,6 +33,11 @@ logs
 *.db
 *.sqlite
 *.db-journal
+backups/
+*.sql
+*.dump
+*.bak
+!prisma/migrations/**/migration.sql
 
 # Build outputs
 dist/

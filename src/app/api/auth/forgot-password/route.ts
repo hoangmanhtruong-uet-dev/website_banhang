@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { PasswordResetService } from '@/lib/services/password-reset.service';
-import { EmailService } from '@/lib/services/email.service';
-import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
+import { PasswordResetService } from '@/lib/services/auth/password-reset.service';
+import { EmailService } from '@/lib/services/notification/email.service';
+import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit/rate-limit';
 import { z } from 'zod';
-import { getRateLimitIdentity } from '@/lib/client-ip';
+import { getRateLimitIdentity } from '@/lib/network/client-ip';
+import { logger } from '@/lib/logger';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email(),
@@ -34,12 +35,9 @@ export async function POST(req: Request) {
 
     const token = await PasswordResetService.createToken(user.id);
     
-    // Send email (non-blocking or with timeout)
-    try {
-      await EmailService.sendPasswordResetEmail(user.email, token);
-    } catch (error) {
-      console.error('[FORGOT_PASSWORD_EMAIL]', error);
-      // Don't fail the request if email fails, but log it
+    const accepted = await EmailService.sendPasswordResetEmail(user.email, token);
+    if (!accepted) {
+      logger.warn('forgot_password.email_not_accepted', { userId: user.id });
     }
 
     return NextResponse.json({ message: 'Nếu email tồn tại, một liên kết đặt lại mật khẩu đã được gửi.' });

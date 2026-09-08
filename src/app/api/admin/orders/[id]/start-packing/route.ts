@@ -1,8 +1,8 @@
 import { type NextRequest } from 'next/server';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { ValidationError } from '@/lib/errors';
-import { FulfillmentService } from '@/lib/services/fulfillment.service';
+import { FulfillmentService } from '@/lib/services/fulfillment/fulfillment.service';
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   return createHandler(async (request: NextRequest) => {
     const actor = await requireAdmin(); const key = request.headers.get('idempotency-key');

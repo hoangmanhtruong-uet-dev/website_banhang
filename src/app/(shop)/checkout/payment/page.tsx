@@ -7,7 +7,7 @@ import { useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
 import { compareMoneyStrings, multiplyMoneyByQuantity } from '@/lib/utils/client-money';
 import { useToastStore } from '@/components/ui/Toast';
-import { clearCheckoutKey, getOrCreateCheckoutKey } from '@/lib/checkout-idempotency';
+import { clearCheckoutKey, getOrCreateCheckoutKey } from '@/lib/idempotency/checkout-idempotency';
 
 interface CheckoutForm {
   customerName: string;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHandler } from '@/lib/api-handler';
-import { requireAdmin } from '@/lib/auth';
-import { LatePaymentRefundService } from '@/lib/services/late-payment-refund.service';
+import { requireAdmin } from '@/lib/auth/auth';
+import { LatePaymentRefundService } from '@/lib/services/payment/late-payment-refund.service';
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   return createHandler(async () => {

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import prisma from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { adminCreateUserSchema } from '@/lib/validations';
 import { generateNextUserId } from '@/lib/idGenerator';

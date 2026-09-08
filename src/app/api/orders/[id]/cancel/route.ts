@@ -1,9 +1,9 @@
 import { type NextRequest } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError, ValidationError } from '@/lib/errors';
 import prisma from '@/lib/db';
-import { InventoryService } from '@/lib/services/inventory.service';
+import { InventoryService } from '@/lib/services/fulfillment/inventory.service';
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   return createHandler(async (request: NextRequest) => {

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useToastStore } from '@/components/ui/Toast';
 import SafeImage from '@/components/common/SafeImage';
-import { DEFAULT_PRODUCT_IMAGE } from '@/lib/product-image';
+import { DEFAULT_PRODUCT_IMAGE } from '@/lib/upload/product-image';
 
 export default function EditProductPage() {
   const router = useRouter();

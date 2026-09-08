@@ -15,13 +15,13 @@ const refreshTokenTtlSchema = z.string().optional().transform((value, context) =
 
 const booleanString = z.enum(['true', 'false']).transform(value => value === 'true');
 
-const envSchema = z.object({
+export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
 
   // Storage
-  STORAGE_PROVIDER: z.enum(['local', 's3', 'cloudinary']).default('local'),
+  STORAGE_PROVIDER: z.enum(['local', 's3', 'cloudinary']).optional(),
   UPLOAD_DIR: z.string().default('public/uploads'),
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
@@ -51,6 +51,42 @@ const envSchema = z.object({
   // Forwarded client IP headers are ignored unless a trusted proxy is configured.
   TRUST_PROXY: booleanString.default('false'),
   RATE_LIMIT_TRUST_PROXY_HOPS: z.coerce.number().int().min(1).max(10).default(1),
+
+  // Production safety switches
+  NOTIFICATION_PROVIDER: z.enum(['log', 'webhook']).default('log'),
+  DEMO_SEED_ENABLED: booleanString.default('false'),
+  DEMO_SELLER_SETUP_ENABLED: booleanString.default('false'),
+}).superRefine((data, context) => {
+  if (data.NODE_ENV !== 'production') return;
+
+  if (!data.STORAGE_PROVIDER) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['STORAGE_PROVIDER'], message: 'STORAGE_PROVIDER must be explicit in production' });
+  } else if (data.STORAGE_PROVIDER === 'local') {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['STORAGE_PROVIDER'], message: 'Local storage is not allowed in production' });
+  } else if (data.STORAGE_PROVIDER === 's3') {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['STORAGE_PROVIDER'], message: 'S3 storage adapter is not implemented; use cloudinary or an implemented durable provider' });
+  }
+
+  if (data.STORAGE_PROVIDER === 'cloudinary' && (!data.CLOUDINARY_CLOUD_NAME || !data.CLOUDINARY_API_KEY || !data.CLOUDINARY_API_SECRET)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['STORAGE_PROVIDER'], message: 'Cloudinary production storage requires CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET' });
+  }
+
+  if (data.NOTIFICATION_PROVIDER === 'log') {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['NOTIFICATION_PROVIDER'], message: 'Log notification provider is not allowed in production' });
+  }
+
+  if (data.DEMO_SEED_ENABLED) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['DEMO_SEED_ENABLED'], message: 'Demo seed is not allowed in production' });
+  }
+
+  if (data.DEMO_SELLER_SETUP_ENABLED) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['DEMO_SELLER_SETUP_ENABLED'], message: 'Demo seller setup is not allowed in production' });
+  }
+
+  const appUrl = new URL(data.NEXT_PUBLIC_APP_URL);
+  if (appUrl.protocol !== 'https:') {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['NEXT_PUBLIC_APP_URL'], message: 'NEXT_PUBLIC_APP_URL must be HTTPS in production' });
+  }
 });
 
 const isProductionBuild = process.env.NEXT_PHASE === 'phase-production-build';
@@ -64,6 +100,12 @@ const buildEnvironment = isProductionBuild
       JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET ?? 'build-only-access-secret-at-least-32-characters',
       JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? 'build-only-refresh-secret-at-least-32-characters',
       REFRESH_TOKEN_TTL: process.env.REFRESH_TOKEN_TTL ?? '604800',
+      STORAGE_PROVIDER: process.env.STORAGE_PROVIDER ?? 'cloudinary',
+      CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ?? 'build_dummy',
+      CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ?? '1234567890',
+      CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ?? 'build_dummy_secret',
+      NOTIFICATION_PROVIDER: process.env.NOTIFICATION_PROVIDER ?? 'webhook',
+      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? 'https://example.com',
     }
   : process.env;
 const parsed = envSchema.safeParse(buildEnvironment);

@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { type NextRequest } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { ConflictError, NotFoundError } from '@/lib/errors';
 const schema=z.object({action:z.enum(['APPROVE','REJECT','COMPLETE'])}).strict();

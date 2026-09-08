@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
 import { formatPrice } from '@/lib/utils';
 import { Product } from '@/types/product';
-import { DEFAULT_PRODUCT_IMAGE, getProductImage } from '@/lib/product-image';
+import { DEFAULT_PRODUCT_IMAGE, getProductImage } from '@/lib/upload/product-image';
 import SafeImage from '@/components/common/SafeImage';
 
 const categoryIcons: Record<string, string> = {

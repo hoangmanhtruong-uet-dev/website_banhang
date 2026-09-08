@@ -8,7 +8,7 @@ import { useToastStore } from '@/components/ui/Toast';
 import { Product } from '@/types/product';
 import { useAuthStore } from '@/store/authStore';
 import SafeImage from '@/components/common/SafeImage';
-import { getCategoryProductImage } from '@/lib/product-image';
+import { getCategoryProductImage } from '@/lib/upload/product-image';
 
 export default function ProductDetailPage() {
   const { id } = useParams();

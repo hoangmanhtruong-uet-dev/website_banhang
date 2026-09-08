@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { serializeMoneyFields } from '@/lib/utils/money';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 
 export async function GET() {
   try {

@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { ValidationError } from '@/lib/errors';
 import prisma from '@/lib/db';
-import { InventoryService } from '@/lib/services/inventory.service';
-import { ORDER_STATUS, OrderStateService, type OrderStatus } from '@/lib/services/order-state.service';
-import { FulfillmentService } from '@/lib/services/fulfillment.service';
+import { InventoryService } from '@/lib/services/fulfillment/inventory.service';
+import { ORDER_STATUS, OrderStateService, type OrderStatus } from '@/lib/services/order/order-state.service';
+import { FulfillmentService } from '@/lib/services/fulfillment/fulfillment.service';
 
 const compatibilityTargets: Readonly<Record<string, OrderStatus>> = {
   confirmed: ORDER_STATUS.CONFIRMED, processing: ORDER_STATUS.CONFIRMED,

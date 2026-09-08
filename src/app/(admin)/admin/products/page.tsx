@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { formatPrice } from '@/lib/utils';
 import { useToastStore } from '@/components/ui/Toast';
 import SafeImage from '@/components/common/SafeImage';
-import { DEFAULT_PRODUCT_IMAGE } from '@/lib/product-image';
+import { DEFAULT_PRODUCT_IMAGE } from '@/lib/upload/product-image';
 
 export default function AdminProductsPage() {
   const [activeTab, setActiveTab] = useState<'products' | 'categories'>('products');

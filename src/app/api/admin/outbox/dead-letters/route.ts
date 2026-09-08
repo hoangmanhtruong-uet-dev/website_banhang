@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHandler } from '@/lib/api-handler';
-import { requireAdmin } from '@/lib/auth';
-import { DeadLetterService } from '@/lib/services/outbox-reconciliation';
+import { requireAdmin } from '@/lib/auth/auth';
+import { DeadLetterService } from '@/lib/services/outbox/outbox-reconciliation';
 
 export const dynamic = 'force-dynamic';
 

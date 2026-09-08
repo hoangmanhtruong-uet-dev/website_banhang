@@ -1,9 +1,9 @@
 import { type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError, ValidationError } from '@/lib/errors';
-import { ORDER_STATUS, OrderStateService } from '@/lib/services/order-state.service';
+import { ORDER_STATUS, OrderStateService } from '@/lib/services/order/order-state.service';
 const schema = z.object({ reason: z.string().trim().min(3).max(500) }).strict();
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   return createHandler(async (request: NextRequest) => {

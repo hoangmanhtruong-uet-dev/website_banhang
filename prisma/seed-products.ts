@@ -1,9 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import { catalogProducts } from './catalog-products';
+import { assertDemoScriptMayMutateDatabase } from '../src/lib/security/script-safety';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  assertDemoScriptMayMutateDatabase({ scriptName: 'prisma/seed-products.ts', optInEnv: 'DEMO_SEED_ENABLED' });
   const names = [...new Set(catalogProducts.map(product => product.category))];
   const categoryIds = new Map<string, string>();
   const seller = await prisma.user.findFirst({

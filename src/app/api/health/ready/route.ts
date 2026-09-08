@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { outboxConfig, OUTBOX_EVENT } from '@/lib/services/outbox.service';
+import { outboxConfig, OUTBOX_EVENT } from '@/lib/services/outbox/outbox.service';
 
 export const dynamic = 'force-dynamic';
 

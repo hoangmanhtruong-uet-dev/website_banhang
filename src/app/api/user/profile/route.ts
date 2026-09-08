@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
-import { claimAvatarUpload, UploadAssetAuthorizationError } from '@/lib/services/upload-asset.service';
+import { getSession } from '@/lib/auth/auth';
+import { claimAvatarUpload, UploadAssetAuthorizationError } from '@/lib/services/upload/upload-asset.service';
 
 export async function PUT(req: Request) {
   try {

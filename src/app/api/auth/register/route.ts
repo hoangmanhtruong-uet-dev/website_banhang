@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { registerSchema } from '@/lib/validations';
 import { generateNextUserId } from '@/lib/idGenerator';
-import { AuthService } from '@/lib/services/auth.service';
-import { SessionService } from '@/lib/services/session.service';
-import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
-import { PasswordService } from '@/lib/services/password.service';
-import { getRateLimitIdentity, getTrustedClientIp } from '@/lib/client-ip';
+import { AuthService } from '@/lib/services/auth/auth.service';
+import { SessionService } from '@/lib/services/auth/session.service';
+import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit/rate-limit';
+import { PasswordService } from '@/lib/services/auth/password.service';
+import { getRateLimitIdentity, getTrustedClientIp } from '@/lib/network/client-ip';
 
 export const runtime = 'nodejs';
 

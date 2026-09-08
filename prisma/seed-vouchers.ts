@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { assertDemoScriptMayMutateDatabase } from '../src/lib/security/script-safety';
 
 const prisma = new PrismaClient();
 
@@ -78,6 +79,7 @@ export async function seedVouchers(sellerId: string, count = 100) {
 }
 
 async function runCli() {
+  assertDemoScriptMayMutateDatabase({ scriptName: 'prisma/seed-vouchers.ts', optInEnv: 'DEMO_SEED_ENABLED' });
   const admin = await prisma.user.findFirst({
     where: { role: 'admin' },
     select: { id: true, email: true },

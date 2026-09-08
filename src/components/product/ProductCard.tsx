@@ -5,7 +5,7 @@ import { getAvailableStock, useCartStore } from '@/store/cartStore';
 import { formatPrice } from '@/lib/utils';
 import { compareMoneyStrings, percentageOff } from '@/lib/utils/client-money';
 import { useState } from 'react';
-import { DEFAULT_PRODUCT_IMAGE, getProductImage } from '@/lib/product-image';
+import { DEFAULT_PRODUCT_IMAGE, getProductImage } from '@/lib/upload/product-image';
 import SafeImage from '@/components/common/SafeImage';
 import { useAuthStore } from '@/store/authStore';
 import { usePathname, useRouter } from 'next/navigation';

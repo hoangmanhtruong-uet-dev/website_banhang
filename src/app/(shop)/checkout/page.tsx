@@ -7,7 +7,7 @@ import { orderSchema } from '@/lib/validations';
 import { useToastStore } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { clearCheckoutKey, getOrCreateCheckoutKey } from '@/lib/checkout-idempotency';
+import { clearCheckoutKey, getOrCreateCheckoutKey } from '@/lib/idempotency/checkout-idempotency';
 
 type CheckoutForm = {
   customerName: string;

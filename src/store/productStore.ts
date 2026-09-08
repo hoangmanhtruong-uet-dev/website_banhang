@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { Product } from '@/types/product';
-import { mockProducts } from '@/lib/mockData';
 
 interface ProductState {
   products: Product[];
@@ -8,9 +7,9 @@ interface ProductState {
 }
 
 export const useProductStore = create<ProductState>((set) => ({
-  products: mockProducts,
+  products: [],
   
   setProducts: (products) => set({ products }),
   
-  // Bạn có thể thêm các hàm addProduct, updateProduct, deleteProduct gọi API ở đây
+  // TODO: Thêm các hàm addProduct, updateProduct, deleteProduct gọi API ở đây
 }));

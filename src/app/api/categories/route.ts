@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
+import { cacheService } from '@/lib/services/cache.service';
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
-      where: { approved: true },
-      orderBy: { name: 'asc' },
-      include: { _count: { select: { products: true } } },
+    const categories = await cacheService.getOrSet('categories:approved', 60_000, async () => {
+      return prisma.category.findMany({
+        where: { approved: true },
+        orderBy: { name: 'asc' },
+        include: { _count: { select: { products: true } } },
+      });
     });
     return NextResponse.json(categories);
   } catch (error) {
@@ -38,6 +41,8 @@ export async function POST(req: Request) {
         description,
       },
     });
+
+    cacheService.invalidate('categories:approved');
 
     return NextResponse.json(category, { status: 201 });
   } catch (error: any) {

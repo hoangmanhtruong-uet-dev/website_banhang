@@ -4,6 +4,47 @@ import { jwtVerify } from 'jose';
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
 import { validateApiMutationOrigin } from '@/lib/security/origin-policy';
+import { handleCorsPreflight } from '@/lib/network/cors';
+
+// Canonical MIME types allowed for local uploads, keyed by extension.
+const UPLOAD_EXT_MIME: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+};
+
+/**
+ * Serve hardening headers for every /uploads/:key response.
+ *
+ * Purpose:
+ * - X-Content-Type-Options: nosniff  — browser must not sniff MIME
+ * - Content-Type derived from extension — explicit, not browser-guessed
+ * - Content-Disposition: inline       — show in browser (not download trigger)
+ *   This makes malicious re-hosting obvious while still displaying images.
+ * - Cache-Control: immutable           — keys are UUID-based and never reused
+ *
+ * Note: "inline" is intentional for images; even with "inline", nosniff
+ * ensures the browser respects Content-Type and will NOT execute HTML/JS
+ * served under an image MIME type.
+ */
+function handleUploadStaticRequest(request: NextRequest): NextResponse {
+  const pathname = request.nextUrl.pathname;
+  // Extract extension from the UUID-based key, e.g. /uploads/<uuid>.png → png
+  const ext = pathname.split('.').pop()?.toLowerCase() ?? '';
+  const mimeType = UPLOAD_EXT_MIME[ext] ?? 'application/octet-stream';
+
+  const response = NextResponse.next();
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Content-Type', mimeType);
+  response.headers.set('Content-Disposition', 'inline');
+  // Uploaded files are immutable: UUID keys are never reused after deletion.
+  response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  // Prevent the file from being embedded in cross-origin frames.
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  return response;
+}
 
 const ACCESS_SECRET = new TextEncoder().encode(env.JWT_ACCESS_SECRET);
 
@@ -24,6 +65,19 @@ function redirectToLogin(request: NextRequest, fromPath: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('auth-token')?.value;
+
+  // Harden headers for locally-stored uploaded files.
+  // This runs before Next.js serves the static file, making headers reliable
+  // regardless of deployment environment.
+  if (pathname.startsWith('/uploads/')) {
+    return handleUploadStaticRequest(request);
+  }
+
+  // CORS Preflight (OPTIONS) Handling
+  if (request.method === 'OPTIONS' && pathname.startsWith('/api')) {
+    const preflight = handleCorsPreflight(request);
+    if (preflight) return preflight;
+  }
 
   // Cookie-authenticated browser mutations require this independently of CORS.
   const originDecision = validateApiMutationOrigin({
@@ -121,5 +175,15 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/admin/:path*', '/profile/:path*', '/seller/:path*', '/shipper/:path*', '/cart/:path*', '/checkout/:path*'],
+  matcher: [
+    '/api/:path*',
+    '/admin/:path*',
+    '/profile/:path*',
+    '/seller/:path*',
+    '/shipper/:path*',
+    '/cart/:path*',
+    '/checkout/:path*',
+    // Apply security headers to every locally-stored uploaded file.
+    '/uploads/:path*',
+  ],
 };

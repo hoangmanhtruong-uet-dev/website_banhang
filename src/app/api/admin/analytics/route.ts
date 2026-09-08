@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { type NextRequest } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { ValidationError } from '@/lib/errors';
 import { Money } from '@/lib/utils/money';

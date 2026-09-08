@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { PasswordResetService } from '@/lib/services/password-reset.service';
-import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
-import { PasswordService } from '@/lib/services/password.service';
+import { PasswordResetService } from '@/lib/services/auth/password-reset.service';
+import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit/rate-limit';
+import { PasswordService } from '@/lib/services/auth/password.service';
 import { z } from 'zod';
-import { getRateLimitIdentity } from '@/lib/client-ip';
+import { getRateLimitIdentity } from '@/lib/network/client-ip';
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1),

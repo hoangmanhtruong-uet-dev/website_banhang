@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { clearCheckoutKey } from '@/lib/checkout-idempotency';
+import { clearCheckoutKey } from '@/lib/idempotency/checkout-idempotency';
 import { useCartStore } from '@/store/cartStore';
-import { authenticatedFetch } from '@/lib/authenticated-fetch';
+import { authenticatedFetch } from '@/lib/auth/authenticated-fetch';
 
 interface User {
   id: string;

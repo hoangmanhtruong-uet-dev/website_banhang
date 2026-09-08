@@ -1,9 +1,9 @@
 import { type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getSession, canAccessSeller } from '@/lib/auth';
+import { getSession, canAccessSeller } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthorizationError, ValidationError } from '@/lib/errors';
-import { FulfillmentService } from '@/lib/services/fulfillment.service';
+import { FulfillmentService } from '@/lib/services/fulfillment/fulfillment.service';
 
 const bodySchema = z.object({
   action: z.enum(['confirm', 'pack']),

@@ -20,7 +20,7 @@ Nền tảng thương mại điện tử đa vai trò xây dựng với Next.js 
 | Xác thực | `jose`, `bcryptjs`, HTTP-only cookies |
 | Client state | Zustand |
 | Styling | Tailwind CSS + CSS toàn cục |
-| Ảnh | Local storage hoặc Cloudinary |
+| Ảnh | Cloudinary (production), local filesystem (development only) |
 
 ## Yêu cầu
 
@@ -51,13 +51,7 @@ Mở [http://localhost:3000](http://localhost:3000).
 
 ## Tài khoản demo
 
-Các tài khoản dưới đây chỉ được tạo bởi seed và phải đổi/xoá trước khi triển khai công khai:
-
-| Vai trò | Email | Mật khẩu |
-| --- | --- | --- |
-| Admin | `truongcri0101@gmail.com` | `123456` |
-| User | `user@mtruong.store` | `User@123456` |
-| Shipper | `shipper@mtruong.store` | `Shipper@123` |
+Seed/demo không còn chứa mật khẩu mặc định trong mã nguồn. Chỉ chạy seed trên database phát triển/demo sau khi cấu hình rõ ràng các biến opt-in và secret placeholder riêng của môi trường, ví dụ `DEMO_ADMIN_PASSWORD=YOUR_DEMO_PASSWORD`. Không dùng tài khoản demo cho staging/production.
 
 ## Biến môi trường quan trọng
 
@@ -66,7 +60,7 @@ Sao chép `.env.example` để xem toàn bộ biến. Những nhóm cấu hình 
 - `DATABASE_URL`: chuỗi kết nối MySQL.
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `ACCESS_TOKEN_TTL`, `REFRESH_TOKEN_TTL`: xác thực và session.
 - `NEXT_PUBLIC_APP_URL`, `API_ALLOWED_ORIGINS`, `TRUST_PROXY`: URL triển khai và chính sách origin/proxy.
-- `STORAGE_PROVIDER`: dùng `local` mặc định hoặc `cloudinary`. Khi dùng Cloudinary, cung cấp `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+- `STORAGE_PROVIDER`: `local` (chỉ dùng cho development) hoặc `cloudinary` (bắt buộc cho production). `s3` chưa được triển khai và bị từ chối ở production. Khi dùng Cloudinary, cung cấp `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 - `WEBHOOK_SECRET`, `WEBHOOK_TOLERANCE_SECONDS`: xác thực webhook thanh toán bằng HMAC.
 - `OUTBOX_*`: worker xử lý event và health/readiness.
 - `NOTIFICATION_*`: mặc định `log`; dùng `webhook` chỉ với endpoint HTTPS đã allowlist.
@@ -132,7 +126,7 @@ Xem thêm [Production checklist](PRODUCTION_CHECKLIST.md), [Security policy](SEC
 
 ## Lưu ý vận hành
 
-- `STORAGE_PROVIDER=s3` chưa được triển khai; chọn `local` (cần volume bền vững) hoặc `cloudinary`.
+- `STORAGE_PROVIDER=s3` chưa được triển khai và bị từ chối ở production. `STORAGE_PROVIDER=local` chỉ dùng cho development (dữ liệu sẽ mất khi container tái tạo). Dùng `STORAGE_PROVIDER=cloudinary` cho production.
 - Provider thanh toán hiện là internal wallet; cần adapter provider thực, reconciliation và cấu hình webhook trước khi nhận thanh toán thật.
 - `NOTIFICATION_PROVIDER=log` không gửi email/SMS. Cấu hình webhook notification hoặc tích hợp provider trước khi dùng reset password/notification với người dùng thật.
 - Trong production phải dùng HTTPS, origin chính xác, secret ngẫu nhiên mạnh và tài khoản không phải demo.

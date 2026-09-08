@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { SessionService } from '@/lib/services/session.service';
-import { AuthService } from '@/lib/services/auth.service';
-import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit';
-import { getRateLimitIdentity, getTrustedClientIp } from '@/lib/client-ip';
+import { SessionService } from '@/lib/services/auth/session.service';
+import { AuthService } from '@/lib/services/auth/auth.service';
+import { rateLimit, getRateLimitResponse } from '@/lib/rate-limit/rate-limit';
+import { getRateLimitIdentity, getTrustedClientIp } from '@/lib/network/client-ip';
 
 export async function POST(req: Request) {
   try {

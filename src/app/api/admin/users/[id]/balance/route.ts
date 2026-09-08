@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { enforceManualWalletMutationPolicy } from '@/lib/security/manual-wallet-mutation-guard';
 import { ManualWalletMutationDisabledError } from '@/lib/security/manual-wallet-mutation-policy';
 import { Money, normalizeCurrency, parseMoneyInput, serializeMoneyFields } from '@/lib/utils/money';

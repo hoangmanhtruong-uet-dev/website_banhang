@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError, NotFoundError } from '@/lib/errors';
-import { PasswordService } from '@/lib/services/password.service';
+import { PasswordService } from '@/lib/services/auth/password.service';
 
 const pinSchema = z.object({
   currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu tài khoản'),

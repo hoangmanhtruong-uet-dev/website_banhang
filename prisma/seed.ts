@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedVouchers } from './seed-vouchers';
 import { realisticOriginalPrice, realisticProductPrice } from './product-pricing';
+import { assertDemoScriptMayMutateDatabase, requireConfiguredSecret } from '../src/lib/security/script-safety';
 
 const prisma = new PrismaClient();
 
@@ -164,6 +165,7 @@ const generatedProducts = generateProducts();
 const allProducts = [...products, ...generatedProducts];
 
 async function main() {
+  assertDemoScriptMayMutateDatabase({ scriptName: 'prisma/seed.ts', optInEnv: 'DEMO_SEED_ENABLED' });
   console.log('🌱 Bắt đầu seed database...');
 
   // Xóa data cũ
@@ -182,7 +184,7 @@ async function main() {
   let productCount = 0;
 
   // Tạo admin user
-  const adminPassword = await bcrypt.hash('123456', 12);
+  const adminPassword = await bcrypt.hash(requireConfiguredSecret(process.env.DEMO_ADMIN_PASSWORD, 'DEMO_ADMIN_PASSWORD'), 12);
   adminCount++;
   const admin = await prisma.user.create({
     data: {
@@ -196,10 +198,10 @@ async function main() {
       birthday: new Date('2007-01-01'),
     },
   });
-  console.log(`✅ Tạo admin: ${admin.email} (${admin.code}) / 123456`);
+  console.log(`✅ Tạo admin: ${admin.email} (${admin.code})`);
 
   // Tạo test user
-  const userPassword = await bcrypt.hash('User@123456', 12);
+  const userPassword = await bcrypt.hash(requireConfiguredSecret(process.env.DEMO_USER_PASSWORD, 'DEMO_USER_PASSWORD'), 12);
   userCount++;
   const user = await prisma.user.create({
     data: {
@@ -213,10 +215,10 @@ async function main() {
       birthday: new Date('1990-05-15'),
     },
   });
-  console.log(`✅ Tạo user: ${user.email} (${user.code}) / User@123456`);
+  console.log(`✅ Tạo user: ${user.email} (${user.code})`);
 
   // Tạo shipper user mẫu
-  const shipperPassword = await bcrypt.hash('Shipper@123', 12);
+  const shipperPassword = await bcrypt.hash(requireConfiguredSecret(process.env.DEMO_SHIPPER_PASSWORD, 'DEMO_SHIPPER_PASSWORD'), 12);
   const shipper = await prisma.user.create({
     data: {
       code: 'SH001',
@@ -231,7 +233,7 @@ async function main() {
       birthday: new Date('1995-10-20'),
     },
   });
-  console.log(`✅ Tạo shipper: ${shipper.email} (SH001) / Shipper@123`);
+  console.log(`✅ Tạo shipper: ${shipper.email} (SH001)`);
 
   // Tạo categories
   const categoriesData = ['Thời trang', 'Công nghệ', 'Làm đẹp', 'Gia dụng'];
@@ -268,9 +270,9 @@ async function main() {
   await seedVouchers(admin.id, 100);
 
   console.log('\n🎉 Seed hoàn thành!');
-  console.log('📧 Admin:  truongcri0101@gmail.com (AD001) / 123456');
-  console.log('📧 User:   user@mtruong.store (US001) / User@123456');
-  console.log('📧 Shipper: shipper@mtruong.store (SH001) / Shipper@123');
+  console.log('📧 Admin:  truongcri0101@gmail.com (AD001)');
+  console.log('📧 User:   user@mtruong.store (US001)');
+  console.log('📧 Shipper: shipper@mtruong.store (SH001)');
   console.log(`📦 Tổng sản phẩm: ${allProducts.length} (PR001 - PR${String(allProducts.length).padStart(3, '0')})`);
 }
 

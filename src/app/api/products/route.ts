@@ -2,11 +2,11 @@ import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { productSchema } from '@/lib/validations';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import { generateNextProductId } from '@/lib/idGenerator';
 import { serializeMoneyFields } from '@/lib/utils/money';
-import { getCategoryProductImage } from '@/lib/product-image';
-import { claimProductUploads, normalizeProductImageUrls, UploadAssetAuthorizationError, UploadAssetValidationError } from '@/lib/services/upload-asset.service';
+import { getCategoryProductImage } from '@/lib/upload/product-image';
+import { claimProductUploads, normalizeProductImageUrls, UploadAssetAuthorizationError, UploadAssetValidationError } from '@/lib/services/upload/upload-asset.service';
 
 export async function GET(req: Request) {
   try {

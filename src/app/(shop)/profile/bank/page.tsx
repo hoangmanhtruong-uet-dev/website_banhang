@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/utils';
 import { useToastStore } from '@/components/ui/Toast';
-import { authenticatedFetch } from '@/lib/authenticated-fetch';
+import { authenticatedFetch } from '@/lib/auth/authenticated-fetch';
 
 interface BankInfo {
   id: string;

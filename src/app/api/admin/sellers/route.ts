@@ -1,6 +1,6 @@
 import { type NextRequest } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 
 export async function GET(req: NextRequest) {

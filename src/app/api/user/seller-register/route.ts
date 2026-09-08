@@ -1,6 +1,6 @@
 import { type NextRequest } from 'next/server';
 import prisma from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError, ConflictError } from '@/lib/errors';
 import { sellerKycSchema } from '@/lib/validations';

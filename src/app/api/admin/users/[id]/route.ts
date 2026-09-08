@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { type NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import prisma from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { createHandler } from '@/lib/api-handler';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import { adminUpdateUserSchema } from '@/lib/validations';
