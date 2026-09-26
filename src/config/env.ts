@@ -105,6 +105,8 @@ const buildEnvironment = isProductionBuild
       CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ?? '1234567890',
       CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ?? 'build_dummy_secret',
       NOTIFICATION_PROVIDER: process.env.NOTIFICATION_PROVIDER ?? 'webhook',
+      NOTIFICATION_EMAIL_WEBHOOK_URL: process.env.NOTIFICATION_EMAIL_WEBHOOK_URL ?? 'https://notify.example.com/email',
+      NOTIFICATION_ALLOWED_HOSTS: process.env.NOTIFICATION_ALLOWED_HOSTS ?? 'notify.example.com',
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? 'https://example.com',
     }
   : process.env;
