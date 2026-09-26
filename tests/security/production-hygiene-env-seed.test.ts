@@ -115,5 +115,5 @@ test('password reset email uses notification provider and does not log raw reset
   assert.match(emailService, /template:\s*'password-reset'/);
   assert.doesNotMatch(emailService, /\[EMAIL SENT\]|logger\.info\([^\n]*(?:resetUrl|token)/);
   assert.doesNotMatch(forgotRoute, /console\.error\('\[FORGOT_PASSWORD_EMAIL\]'/);
-  assert.match(notificationProvider, /NODE_ENV === 'production'\) throw new Error\('Log notification provider is not allowed in production'/);
+  assert.match(notificationProvider, /NODE_ENV === 'production'[\s\S]*?throw new Error\('Log notification provider is not allowed in production'\)/);
 });

@@ -1,4 +1,4 @@
-name: Verify
+name: CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  verify:
+  ci:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: "mysql://user:pass@localhost:3306/mtruong_store_test"
@@ -18,26 +18,38 @@ jobs:
       STORAGE_PROVIDER: "local"
       NOTIFICATION_PROVIDER: "log"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - name: Install Dependencies
         run: npm ci
+
       - name: Generate Prisma Client
         run: npx prisma generate
+
       - name: Run Typecheck
         run: npm run typecheck
+
       - name: Run ESLint
         run: npm run lint
+
       - name: Run Unit Tests
         run: npm run test:unit
+
       - name: Run Security Tests
         run: npm run test:security
+
       - name: Run Money Static Audit
         run: npm run money:static
+
       - name: Run Order State Audit
         run: npm run order-state:audit
+
       - name: Run Production Build
         run: npm run build

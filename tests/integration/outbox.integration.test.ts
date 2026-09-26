@@ -32,7 +32,13 @@ async function clean(): Promise<void> {
   await prisma.idempotencyRecord.deleteMany();
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
+  await prisma.sellerFulfillmentTransition.deleteMany();
+  await prisma.codCollection.deleteMany();
+  await prisma.deliveryAttempt.deleteMany();
+  await prisma.sellerSettlement.deleteMany();
+  await prisma.sellerFulfillment.deleteMany();
   await prisma.orderItem.deleteMany();
+  await prisma.inventoryMovement.deleteMany();
   await prisma.order.deleteMany();
   await prisma.product.deleteMany();
   await prisma.user.deleteMany();

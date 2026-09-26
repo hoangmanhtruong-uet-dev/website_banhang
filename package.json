@@ -9,7 +9,7 @@
     "start:web": "next start",
     "lint": "eslint src --max-warnings=0",
     "test": "npm run test:unit && npm run test:security",
-    "test:unit": "tsx --test tests/unit/idempotency.test.ts tests/unit/fulfillment-p0.test.ts tests/unit/refresh-token-ttl.test.ts tests/unit/storefront-image.test.ts tests/security/upload-rate-limit.test.ts",
+    "test:unit": "tsx --test tests/unit/idempotency.test.ts tests/unit/fulfillment-p0.test.ts tests/unit/refresh-token-ttl.test.ts tests/unit/storefront-image.test.ts tests/security/upload-rate-limit.test.ts tests/unit/avatar-upload-flow.test.ts",
     "test:security": "tsx --test tests/security/production-remediation.test.ts tests/security/production-hygiene-env-seed.test.ts tests/security/security-boundaries.test.ts tests/unit/payment-pin-policy.test.ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",

@@ -91,26 +91,38 @@ export async function reserveUploadQuota(
   try {
     return await prisma.$transaction(async (tx) => {
       await tx.$executeRaw(Prisma.sql`
-        INSERT IGNORE INTO upload_quota_bucket
+        INSERT INTO upload_quota_bucket
           (userId, periodStart, requestCount, fileCount, bytesUsed, expiresAt, createdAt, updatedAt)
         VALUES
           (${userId}, ${periodStart}, 0, 0, 0, ${retentionUntil}, ${now}, ${now})
+        ON DUPLICATE KEY UPDATE updatedAt = ${now}
       `);
 
-      // One guarded UPDATE is the enforcement point. Concurrent application
-      // instances serialize on this row and cannot overrun any configured limit.
-      const affected = await tx.$executeRaw(Prisma.sql`
+      const rows = await tx.$queryRaw<Array<{ fileCount: number; bytesUsed: bigint }>>(Prisma.sql`
+        SELECT fileCount, bytesUsed
+        FROM upload_quota_bucket
+        WHERE userId = ${userId} AND periodStart = ${periodStart}
+        FOR UPDATE
+      `);
+
+      const bucket = rows[0];
+      if (!bucket) throw new UploadQuotaExceededError(resetAt);
+
+      if (
+        bucket.fileCount + fileSizes.length > limits.filesPerDay ||
+        bucket.bytesUsed + bytesReserved > BigInt(limits.bytesPerDay)
+      ) {
+        throw new UploadQuotaExceededError(resetAt);
+      }
+
+      await tx.$executeRaw(Prisma.sql`
         UPDATE upload_quota_bucket
         SET requestCount = requestCount + 1,
             fileCount = fileCount + ${fileSizes.length},
             bytesUsed = bytesUsed + ${bytesReserved},
             updatedAt = ${now}
-        WHERE userId = ${userId}
-          AND periodStart = ${periodStart}
-          AND fileCount <= ${limits.filesPerDay - fileSizes.length}
-          AND bytesUsed <= ${BigInt(limits.bytesPerDay) - bytesReserved}
+        WHERE userId = ${userId} AND periodStart = ${periodStart}
       `);
-      if (affected !== 1) throw new UploadQuotaExceededError(resetAt);
 
       const reservation = await tx.uploadReservation.create({
         data: {

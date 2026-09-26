@@ -19,11 +19,17 @@ async function clean() {
   await prisma.orderStatusTransition.deleteMany();
   await prisma.walletLedger.deleteMany();
   await prisma.outboxEvent.deleteMany();
+  await prisma.inventoryMovement.deleteMany();
   await prisma.inventoryReservation.deleteMany();
   await prisma.webhookEvent.deleteMany();
   await prisma.idempotencyRecord.deleteMany();
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
+  await prisma.sellerFulfillmentTransition.deleteMany();
+  await prisma.codCollection.deleteMany();
+  await prisma.deliveryAttempt.deleteMany();
+  await prisma.sellerSettlement.deleteMany();
+  await prisma.sellerFulfillment.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.product.deleteMany();
@@ -50,7 +56,7 @@ async function users() {
 async function pendingOrder() {
   const actors = await users();
   const token = id();
-  const product = await prisma.product.create({ data: { code: `OP-${token.slice(0, 7)}`, slug: `order-state-${token}`, name: 'State item', price: 25, stockQuantity: 10 } });
+  const product = await prisma.product.create({ data: { code: `OP-${token.slice(0, 7)}`, sku: `SKU-${token.slice(0, 16)}`, slug: `order-state-${token}`, name: 'State item', price: 25, stockQuantity: 10 } });
   const input: CreateOrderInput = { userId: actors.owner.id, idempotencyKey: `checkout:${token}`, customerName: 'Owner', customerEmail: actors.owner.email, customerPhone: '0900000000', shippingAddress: 'Test', paymentMethod: 'COD', items: [{ productId: product.id, quantity: 1 }] };
   const result = await IdempotencyService.execute({ scopeId: actors.owner.id, operation: 'order:create', method: 'POST', key: input.idempotencyKey, request: input, handler: async (tx) => ({ status: 201, body: await OrderService.createOrderInTransaction(tx, input) }) });
   return { ...actors, product, order: result.body };

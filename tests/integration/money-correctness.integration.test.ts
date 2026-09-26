@@ -13,10 +13,16 @@ async function clean() {
   await prisma.walletLedger.deleteMany();
   await prisma.outboxEvent.deleteMany();
   await prisma.inventoryReservation.deleteMany();
+  await prisma.inventoryMovement.deleteMany();
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.orderReturn.deleteMany();
   await prisma.orderStatusTransition.deleteMany();
+  await prisma.sellerFulfillmentTransition.deleteMany();
+  await prisma.codCollection.deleteMany();
+  await prisma.deliveryAttempt.deleteMany();
+  await prisma.sellerSettlement.deleteMany();
+  await prisma.sellerFulfillment.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.voucher.deleteMany();
@@ -56,8 +62,8 @@ test('server snapshots Decimal prices and ignores client totals', async () => {
   const id = suffix();
   const user = await prisma.user.create({ data: { code: `MU-${id.slice(0, 8)}`, name: 'Money User', email: `${id}@money.test`, password: 'x', balance: new Prisma.Decimal('1000.0000') } });
   const products = await Promise.all([
-    prisma.product.create({ data: { code: `MP-A-${id.slice(0, 6)}`, slug: `mp-a-${id}`, name: 'A', price: new Prisma.Decimal('10.1234'), stockQuantity: 20 } }),
-    prisma.product.create({ data: { code: `MP-B-${id.slice(0, 6)}`, slug: `mp-b-${id}`, name: 'B', price: new Prisma.Decimal('20.5678'), stockQuantity: 20 } }),
+    prisma.product.create({ data: { code: `MP-A-${id.slice(0, 6)}`, sku: `SKU-A-${id.slice(0, 12)}`, slug: `mp-a-${id}`, name: 'A', price: new Prisma.Decimal('10.1234'), stockQuantity: 20 } }),
+    prisma.product.create({ data: { code: `MP-B-${id.slice(0, 6)}`, sku: `SKU-B-${id.slice(0, 12)}`, slug: `mp-b-${id}`, name: 'B', price: new Prisma.Decimal('20.5678'), stockQuantity: 20 } }),
   ]);
   const order = await OrderService.createOrder({
     userId: user.id, customerName: 'Money User', customerEmail: user.email, customerPhone: '0900000000',
@@ -73,7 +79,7 @@ test('server snapshots Decimal prices and ignores client totals', async () => {
 test('two decimal partial refunds remain bounded and ledger balances reconcile', async () => {
   const id = suffix();
   const user = await prisma.user.create({ data: { code: `MR-${id.slice(0, 8)}`, name: 'Refund User', email: `${id}@refund.test`, password: 'x', balance: new Prisma.Decimal('1000.0000') } });
-  const product = await prisma.product.create({ data: { code: `RP-${id.slice(0, 8)}`, slug: `rp-${id}`, name: 'Refundable', price: new Prisma.Decimal('10.3000'), stockQuantity: 10 } });
+  const product = await prisma.product.create({ data: { code: `RP-${id.slice(0, 8)}`, sku: `SKU-R-${id.slice(0, 12)}`, slug: `rp-${id}`, name: 'Refundable', price: new Prisma.Decimal('10.3000'), stockQuantity: 10 } });
   const order = await OrderService.createOrder({
     userId: user.id, customerName: 'Refund User', customerEmail: user.email, customerPhone: '0900000000',
     shippingAddress: 'Integration test address', paymentMethod: 'COD', idempotencyKey: `order:${id}`,
@@ -98,7 +104,7 @@ test('MySQL DECIMAL aggregate is exact', async () => {
   const id = suffix();
   const user = await prisma.user.create({ data: { code: `MA-${id.slice(0, 8)}`, name: 'Aggregate User', email: `${id}@aggregate.test`, password: 'x' } });
   await Promise.all(['0.1000', '0.2000', '0.3000'].map((price, index) => prisma.product.create({ data: {
-    code: `AG-${index}-${id.slice(0, 6)}`, slug: `ag-${index}-${id}`, name: `Aggregate ${index}`, price: new Prisma.Decimal(price), sellerId: user.id,
+    code: `AG-${index}-${id.slice(0, 6)}`, sku: `SKU-AG-${index}-${id.slice(0, 8)}`, slug: `ag-${index}-${id}`, name: `Aggregate ${index}`, price: new Prisma.Decimal(price), sellerId: user.id,
   } })));
   const aggregate = await prisma.product.aggregate({ where: { sellerId: user.id }, _sum: { price: true } });
   assert.equal(Money.serialize(aggregate._sum.price ?? '0'), '0.6000');

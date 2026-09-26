@@ -34,10 +34,16 @@ async function cleanDomainData() {
   await prisma.walletLedger.deleteMany();
   await prisma.outboxEvent.deleteMany();
   await prisma.inventoryReservation.deleteMany();
+  await prisma.inventoryMovement.deleteMany();
   await prisma.webhookEvent.deleteMany();
   await prisma.idempotencyRecord.deleteMany();
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
+  await prisma.sellerFulfillmentTransition.deleteMany();
+  await prisma.codCollection.deleteMany();
+  await prisma.deliveryAttempt.deleteMany();
+  await prisma.sellerSettlement.deleteMany();
+  await prisma.sellerFulfillment.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.voucher.deleteMany();
@@ -64,22 +70,22 @@ async function createUser(balance = 1_000) {
   return user;
 }
 
-async function createProduct(stockQuantity = 20, price = 10) {
+async function createProduct(stockQuantity = 20, price = 10, sellerId?: string) {
   const id = suffix();
   const product = await prisma.product.create({
-    data: { code: `P-${id.slice(0, 8)}`, slug: `idem-${id}`, name: 'Integration product', price, stockQuantity },
+    data: { code: `P-${id.slice(0, 8)}`, sku: `SKU-${id.slice(0, 16)}`, slug: `idem-${id}`, name: 'Integration product', price, stockQuantity, ...(sellerId ? { sellerId } : {}) },
   });
   ids.products.push(product.id);
   return product;
 }
 
-async function createVoucher(userId: string, usageLimit = 1) {
+async function createVoucher(sellerId: string, usageLimit = 1) {
   const id = suffix();
   const voucher = await prisma.voucher.create({
     data: {
       code: `V-${id.slice(0, 8)}`, discountType: 'fixed', discountValue: 5, minOrderValue: 0,
       startDate: new Date(Date.now() - 60_000), endDate: new Date(Date.now() + 86_400_000),
-      usageLimit, sellerId: userId,
+      usageLimit, sellerId,
     },
   });
   ids.vouchers.push(voucher.id);
@@ -139,9 +145,9 @@ test('migrations create real tables, unique indexes, foreign keys, and cleanup i
 });
 
 test('barrier forces four same-key checkouts to one order/payment/stock/voucher/balance mutation and exact replay', async () => {
-  const user = await createUser();
-  const product = await createProduct();
-  const voucher = await createVoucher(user.id);
+  const [user, seller] = await Promise.all([createUser(), createUser()]);
+  const product = await createProduct(20, 10, seller.id);
+  const voucher = await createVoucher(seller.id);
   const key = `barrier:${suffix()}`;
   const input = orderInput(user.id, product.id, key, { paymentMethod: 'Banking', voucherCode: voucher.code });
   const request = { ...input, userId: undefined, idempotencyKey: undefined };
@@ -298,8 +304,9 @@ test('insufficient inventory and one-use voucher under different keys leave no l
   assert.equal(await prisma.idempotencyRecord.count({ where: { key: insufficientKey } }), 0);
   assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: scarce.id } })).stockQuantity, 1);
 
-  const product = await createProduct(10);
-  const voucher = await createVoucher(user.id, 1);
+  const seller = await createUser();
+  const product = await createProduct(10, 10, seller.id);
+  const voucher = await createVoucher(seller.id, 1);
   const attempts = [1, 2].map((number) => executeOrder(orderInput(user.id, product.id, `voucher-race:${suffix()}`, { voucherCode: voucher.code }))
     .then((value) => ({ status: 'fulfilled' as const, value }))
     .catch((reason: unknown) => ({ status: 'rejected' as const, reason })));

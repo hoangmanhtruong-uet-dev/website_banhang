@@ -21,11 +21,13 @@ async function clean(): Promise<void> {
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.orderItem.deleteMany();
+  await prisma.inventoryMovement.deleteMany();
   await prisma.sellerSettlement.deleteMany();
   await prisma.sellerFulfillment.deleteMany();
   await prisma.order.deleteMany();
   await prisma.voucher.deleteMany();
   await prisma.product.deleteMany();
+  await prisma.sellerProfile.deleteMany();
   await prisma.user.deleteMany();
 }
 

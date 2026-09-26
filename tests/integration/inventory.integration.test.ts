@@ -22,10 +22,16 @@ async function clean(): Promise<void> {
   await prisma.walletLedger.deleteMany();
   await prisma.outboxEvent.deleteMany();
   await prisma.inventoryReservation.deleteMany();
+  await prisma.inventoryMovement.deleteMany();
   await prisma.webhookEvent.deleteMany();
   await prisma.idempotencyRecord.deleteMany();
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
+  await prisma.sellerFulfillmentTransition.deleteMany();
+  await prisma.codCollection.deleteMany();
+  await prisma.deliveryAttempt.deleteMany();
+  await prisma.sellerSettlement.deleteMany();
+  await prisma.sellerFulfillment.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.voucher.deleteMany();
@@ -48,7 +54,7 @@ async function user() {
 
 async function product(stockQuantity: number, name = 'Inventory Product') {
   const token = suffix();
-  return prisma.product.create({ data: { code: `IP-${token.slice(0, 8)}`, slug: `inventory-${token}`, name, price: 10, stockQuantity } });
+  return prisma.product.create({ data: { code: `IP-${token.slice(0, 8)}`, sku: `SKU-${token.slice(0, 16)}`, slug: `inventory-${token}`, name, price: 10, stockQuantity } });
 }
 
 function input(userId: string, items: Array<{ productId: string; quantity: number }>, key = `inventory:${suffix()}`): CreateOrderInput {

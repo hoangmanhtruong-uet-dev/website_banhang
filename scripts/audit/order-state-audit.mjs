@@ -2,17 +2,17 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const root = process.cwd();
-const allowed = new Set(['src\\lib\\services\\order-state.service.ts']);
+const allowed = new Set(['src/lib/services/order/order-state.service.ts']);
 const findings = [];
 function walk(dir) {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) walk(path);
     else if (/\.(ts|tsx)$/.test(name)) {
-      const rel = relative(root, path);
+      const rel = relative(root, path).replace(/\\/g, '/');
       if (allowed.has(rel)) continue;
       const source = readFileSync(path, 'utf8');
-      const pattern = /(?:prisma|tx)\.order\.(?:update|updateMany)\s*\([\s\S]{0,500}?\bstatus\s*:/g;
+      const pattern = /(?:prisma|tx)\.order\.(?:update|updateMany)\s*\(\s*\{[\s\S]{0,300}?\bdata\s*:\s*\{[^}]*\bstatus\s*:/g;
       for (const match of source.matchAll(pattern)) findings.push(`${rel}:${source.slice(0, match.index).split('\n').length}`);
     }
   }

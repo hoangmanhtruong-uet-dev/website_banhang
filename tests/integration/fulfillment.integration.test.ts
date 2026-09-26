@@ -17,11 +17,15 @@ async function clean() {
   await prisma.walletLedger.deleteMany();
   await prisma.outboxEvent.deleteMany();
   await prisma.inventoryReservation.deleteMany();
+  await prisma.inventoryMovement.deleteMany();
   await prisma.webhookEvent.deleteMany();
   await prisma.idempotencyRecord.deleteMany();
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.orderItem.deleteMany();
+  await prisma.codCollection.deleteMany();
+  await prisma.deliveryAttempt.deleteMany();
+  await prisma.sellerSettlement.deleteMany();
   await prisma.sellerFulfillment.deleteMany();
   await prisma.order.deleteMany();
   await prisma.voucher.deleteMany();
@@ -44,8 +48,8 @@ test('multi-seller COD order has isolated voucher, inventory, seller actions and
   const sellerB = await prisma.user.create({ data: { code: `SB-${token.slice(0, 7)}`, name: 'Seller B', email: `${token}@seller-b.test`, password: 'x', isSeller: true } });
   const shipperA = await prisma.user.create({ data: { code: `XA-${token.slice(0, 7)}`, name: 'Shipper A', email: `${token}@shipper-a.test`, password: 'x', role: 'shipper' } });
   const shipperB = await prisma.user.create({ data: { code: `XB-${token.slice(0, 7)}`, name: 'Shipper B', email: `${token}@shipper-b.test`, password: 'x', role: 'shipper' } });
-  const productA = await prisma.product.create({ data: { code: `PA-${token.slice(0, 7)}`, slug: `seller-a-${token}`, name: 'A', price: 100, stockQuantity: 10, sellerId: sellerA.id } });
-  const productB = await prisma.product.create({ data: { code: `PB-${token.slice(0, 7)}`, slug: `seller-b-${token}`, name: 'B', price: 200, stockQuantity: 10, sellerId: sellerB.id } });
+  const productA = await prisma.product.create({ data: { code: `PA-${token.slice(0, 7)}`, sku: `SKU-A-${token.slice(0, 12)}`, slug: `seller-a-${token}`, name: 'A', price: 100, stockQuantity: 10, sellerId: sellerA.id } });
+  const productB = await prisma.product.create({ data: { code: `PB-${token.slice(0, 7)}`, sku: `SKU-B-${token.slice(0, 12)}`, slug: `seller-b-${token}`, name: 'B', price: 200, stockQuantity: 10, sellerId: sellerB.id } });
   await prisma.voucher.create({ data: { code: `VA-${token.slice(0, 7)}`, discountType: 'percentage', discountValue: 10, minOrderValue: 50, endDate: new Date(Date.now() + 86_400_000), sellerId: sellerA.id } });
 
   const order = await OrderService.createOrder({
@@ -74,10 +78,10 @@ test('multi-seller COD order has isolated voucher, inventory, seller actions and
   await FulfillmentService.transition({ fulfillmentId: fulfillmentB.id, targetStatus: 'packing', actor: { type: 'SELLER', userId: sellerB.id }, idempotencyKey: `pack-b:${token}` });
   await FulfillmentService.transition({ fulfillmentId: fulfillmentA.id, targetStatus: 'shipping', actor: { type: 'SHIPPER', userId: shipperA.id }, metadata: { assignSelf: true, trackingNumber: 'TRACK-A' }, idempotencyKey: `ship-a:${token}` });
   await assert.rejects(FulfillmentService.transition({ fulfillmentId: fulfillmentA.id, targetStatus: 'delivered', actor: { type: 'SHIPPER', userId: shipperB.id }, idempotencyKey: `wrong-shipper:${token}` }));
-  await FulfillmentService.transition({ fulfillmentId: fulfillmentA.id, targetStatus: 'delivered', actor: { type: 'SHIPPER', userId: shipperA.id }, idempotencyKey: `deliver-a:${token}` });
+  await FulfillmentService.transition({ fulfillmentId: fulfillmentA.id, targetStatus: 'delivered', actor: { type: 'SHIPPER', userId: shipperA.id }, metadata: { proofUrl: 'https://example.com/proof-a.jpg', recipientName: 'Customer A', codCollected: true, codAmount: fulfillmentA.total.toString() }, idempotencyKey: `deliver-a:${token}` });
   assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status, 'shipping');
   await FulfillmentService.transition({ fulfillmentId: fulfillmentB.id, targetStatus: 'shipping', actor: { type: 'SHIPPER', userId: shipperB.id }, metadata: { assignSelf: true, trackingNumber: 'TRACK-B' }, idempotencyKey: `ship-b:${token}` });
-  await FulfillmentService.transition({ fulfillmentId: fulfillmentB.id, targetStatus: 'delivered', actor: { type: 'SHIPPER', userId: shipperB.id }, idempotencyKey: `deliver-b:${token}` });
+  await FulfillmentService.transition({ fulfillmentId: fulfillmentB.id, targetStatus: 'delivered', actor: { type: 'SHIPPER', userId: shipperB.id }, metadata: { proofUrl: 'https://example.com/proof-b.jpg', recipientName: 'Customer B', codCollected: true, codAmount: fulfillmentB.total.toString() }, idempotencyKey: `deliver-b:${token}` });
   assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status, 'delivered');
   assert.equal(await prisma.inventoryReservation.count({ where: { orderId: order.id, status: 'CONSUMED' } }), 2);
 });

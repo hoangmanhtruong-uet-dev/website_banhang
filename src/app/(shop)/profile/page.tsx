@@ -21,6 +21,7 @@ export default function ProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [fileInputEl, setFileInputEl] = useState<HTMLInputElement | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const openFilePicker = () => {
     fileInputEl?.click();
@@ -188,7 +189,7 @@ export default function ProfilePage() {
             <input
               ref={(el) => setFileInputEl(el)}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               style={{ display: 'none' }}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -205,38 +206,53 @@ export default function ProfilePage() {
 
                 (async () => {
                   try {
+                    setUploadingAvatar(true);
                     const fd = new FormData();
                     fd.append('file', file);
                     fd.append('purpose', 'avatar');
 
                     const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-                    const upData = await upRes.json();
+                    const upData = await upRes.json().catch(() => ({}));
 
                     if (!upRes.ok) {
-                      addToast('Upload ảnh thất bại');
+                      addToast(upData.error || 'Upload ảnh thất bại');
+                      setAvatarPreview(null);
                       return;
                     }
 
                     if (!upData?.url) {
-                      addToast('Upload thành công nhưng không có url');
+                      addToast('Upload thành công nhưng không tìm thấy URL');
+                      setAvatarPreview(null);
                       return;
                     }
 
                     setFormData((prev) => ({ ...prev, avatar: upData.url }));
+                    setAvatarPreview(upData.url);
+                    setAvatarLoadError(false);
                     addToast('Đã chọn ảnh thành công');
                   } catch {
-                    addToast('Lỗi upload ảnh');
+                    addToast('Lỗi kết nối server khi upload ảnh');
+                    setAvatarPreview(null);
+                  } finally {
+                    setUploadingAvatar(false);
+                    if (e.target) e.target.value = '';
                   }
                 })();
               }}
             />
 
-            <button type="button" className="btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }} onClick={openFilePicker}>
-              Chọn ảnh
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={uploadingAvatar}
+              style={{ padding: '8px 16px', fontSize: '13px', opacity: uploadingAvatar ? 0.7 : 1 }}
+              onClick={openFilePicker}
+            >
+              {uploadingAvatar ? 'Đang tải ảnh...' : 'Chọn ảnh'}
             </button>
 
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '15px' }}>
-              Dung lượng file tối đa 1 MB<br />Định dạng: .JPEG, .PNG
+              Dung lượng file tối đa 1 MB<br />Định dạng: .JPEG, .PNG, .WEBP
             </p>
           </div>
         </form>

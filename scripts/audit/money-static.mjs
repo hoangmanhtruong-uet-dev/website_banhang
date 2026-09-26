@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 
 const targets = [
-  'src/lib/services/order.service.ts',
-  'src/lib/services/payment.service.ts',
-  'src/lib/services/late-payment-refund.service.ts',
-  'src/lib/services/outbox-consumers.ts',
+  'src/lib/services/order/order.service.ts',
+  'src/lib/services/payment/payment.service.ts',
+  'src/lib/services/payment/late-payment-refund.service.ts',
+  'src/lib/services/outbox/outbox-consumers.ts',
 ];
 const forbidden = [
   ['parseFloat', /\bparseFloat\s*\(/],
