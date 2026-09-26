@@ -23,9 +23,14 @@ jobs:
       JWT_ACCESS_SECRET: "ci-access-secret-that-is-at-least-32-characters"
       JWT_REFRESH_SECRET: "ci-refresh-secret-that-is-at-least-32-characters"
       REFRESH_TOKEN_TTL: "604800"
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
-      STORAGE_PROVIDER: "local"
-      NOTIFICATION_PROVIDER: "log"
+      NEXT_PUBLIC_APP_URL: "https://example.com"
+      STORAGE_PROVIDER: "cloudinary"
+      CLOUDINARY_CLOUD_NAME: "ci_dummy"
+      CLOUDINARY_API_KEY: "1234567890"
+      CLOUDINARY_API_SECRET: "ci_dummy_secret"
+      NOTIFICATION_PROVIDER: "webhook"
+      NOTIFICATION_EMAIL_WEBHOOK_URL: "https://notify.example.com/email"
+      NOTIFICATION_ALLOWED_HOSTS: "notify.example.com"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
