@@ -9,8 +9,17 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: mtruong_store_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
     env:
-      DATABASE_URL: "mysql://user:pass@localhost:3306/mtruong_store_test"
+      DATABASE_URL: "mysql://root@127.0.0.1:3306/mtruong_store_test"
       JWT_ACCESS_SECRET: "ci-access-secret-that-is-at-least-32-characters"
       JWT_REFRESH_SECRET: "ci-refresh-secret-that-is-at-least-32-characters"
       REFRESH_TOKEN_TTL: "604800"
@@ -27,6 +36,8 @@ jobs:
         run: npm ci
       - name: Generate Prisma Client
         run: npx prisma generate
+      - name: Deploy Migrations to CI MySQL
+        run: npx prisma migrate deploy
       - name: Run Typecheck
         run: npm run typecheck
       - name: Run ESLint
