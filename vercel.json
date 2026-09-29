@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/admin/cron/outbox",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/admin/cron/flash-sale",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
