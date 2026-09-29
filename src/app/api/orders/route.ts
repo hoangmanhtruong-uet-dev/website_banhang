@@ -8,6 +8,7 @@ import { createHandler } from '@/lib/api-handler';
 import { AuthenticationError, ValidationError } from '@/lib/errors';
 import { IdempotencyService } from '@/lib/services/idempotency.service';
 import { requireIdempotencyKey } from '@/lib/idempotency/idempotency';
+import { logger } from '@/lib/logger';
 
 export const GET = createHandler(async () => {
   const session = await getSession();
@@ -66,9 +67,10 @@ export const POST = createHandler(async (req: NextRequest) => {
             where: { id: order.id },
             data: { idempotencyScope: String(orderCode) }
           });
-        } catch (error) {
-          console.error("PayOS Error:", error);
-          throw new ValidationError('Không thể tạo link thanh toán PayOS');
+        } catch (error: any) {
+          logger.error("PayOS Error:", { error: error?.message || error });
+          const errMsg = error?.message || 'Không thể tạo link thanh toán PayOS';
+          throw new ValidationError(`Lỗi PayOS: ${errMsg}`);
         }
       }
 
