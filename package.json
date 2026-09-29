@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:lan": "next dev --hostname 0.0.0.0",
-    "build": "next build",
+    "build": "prisma generate && prisma db push --accept-data-loss && next build",
     "start": "tsx scripts/workers/start-all.ts",
     "start:web": "next start",
     "lint": "eslint src --max-warnings=0",
