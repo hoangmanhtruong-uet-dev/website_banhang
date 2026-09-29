@@ -68,7 +68,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       useCartStore.getState().setOwner(data.user.id);
-      set({ user: data.user, isAuthenticated: true });
+      set({ user: data.user, isAuthenticated: true, isLoading: false });
       return { ok: true };
     } catch {
       return { ok: false, error: 'Lỗi kết nối server' };
@@ -91,7 +91,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       useCartStore.getState().setOwner(data.user.id);
-      set({ user: data.user, isAuthenticated: true });
+      set({ user: data.user, isAuthenticated: true, isLoading: false });
       return { ok: true };
     } catch {
       return { ok: false, error: 'Lỗi kết nối server' };

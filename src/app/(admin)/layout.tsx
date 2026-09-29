@@ -5,8 +5,12 @@ import { useAuthStore } from '@/store/authStore';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuthStore();
+  const { user, isLoading, fetchMe } = useAuthStore();
   const router = useRouter();
+
+  useEffect(() => {
+    fetchMe();
+  }, [fetchMe]);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'admin')) {
