@@ -11,9 +11,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     
     // Xác thực chữ ký dữ liệu Webhook từ PayOS (HMAC SHA256)
-    const webhookData = payOS.verifyPaymentWebhookData(body);
+    const webhookData = await payOS.webhooks.verify(body);
     
-    if (webhookData.code === '00' && webhookData.success) {
+    if (webhookData && webhookData.orderCode) {
       const orderCode = String(webhookData.orderCode);
       
       logger.info('payos.webhook.received', { orderCode, amount: webhookData.amount });

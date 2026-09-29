@@ -58,7 +58,7 @@ export const POST = createHandler(async (req: NextRequest) => {
         };
         
         try {
-          const paymentLink = await payOS.createPaymentLink(paymentData);
+          const paymentLink = await payOS.paymentRequests.create(paymentData);
           checkoutUrl = paymentLink.checkoutUrl;
           
           // Lưu orderCode vào Order.idempotencyScope để Webhook mapping
