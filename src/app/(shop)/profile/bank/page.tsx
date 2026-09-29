@@ -48,7 +48,7 @@ export default function BankPage() {
   const [authError, setAuthError] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('1000000');
   const topUpError = validateTopUpAmount(topUpAmount);
-  const [pinForm, setPinForm] = useState({ currentPassword: '', pin: '' });
+  const [pinForm, setPinForm] = useState({ pin: '' });
   const [bankForm, setBankForm] = useState({ bankName: 'Vietcombank - TMCP Ngoại Thương VN', accountNumber: '', accountName: '', isDefault: true });
   const [showBalance, setShowBalance] = useState(true);
 
@@ -108,7 +108,7 @@ export default function BankPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(apiMessage(data, 'Không thể cập nhật PIN'));
       setWallet(prev => prev ? { ...prev, hasPaymentPin: true } : prev);
-      setPinForm({ currentPassword: '', pin: '' });
+      setPinForm({ pin: '' });
       addToast('Đã cập nhật mã PIN giao dịch');
     } catch (error) {
       addToast(error instanceof Error ? error.message : 'Không thể cập nhật PIN', 'error');
@@ -251,10 +251,6 @@ export default function BankPage() {
           </p>
           
           <form onSubmit={handlePin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 8 }}>Mật khẩu đăng nhập hiện tại</label>
-              <input className="input-field" type="password" autoComplete="current-password" required value={pinForm.currentPassword} onChange={e => setPinForm({ ...pinForm, currentPassword: e.target.value })} placeholder="••••••••" style={{ background: 'rgba(0,0,0,0.2)' }} />
-            </div>
             <div>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 8 }}>Mã PIN mới (6 chữ số)</label>
               <input className="input-field" type="password" inputMode="numeric" required maxLength={6} pattern="\d{6}" value={pinForm.pin} onChange={e => setPinForm({ ...pinForm, pin: e.target.value.replace(/\D/g, '') })} placeholder="Ví dụ: 123456" style={{ background: 'rgba(0,0,0,0.2)', letterSpacing: 4, fontFamily: 'monospace', fontSize: 16 }} />
