@@ -1,4 +1,5 @@
 'use client';
+
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { FiTruck, FiRefreshCw, FiShield, FiHeadphones, FiMapPin, FiPhone, FiMail, FiDownloadCloud } from 'react-icons/fi';
@@ -78,22 +79,21 @@ export default function Footer() {
           <ul className="space-y-3">
             {['Thời trang nam nữ & Phụ kiện', 'Thiết bị thông minh & Laptop', 'Mỹ phẩm & Chăm sóc sắc đẹp', 'Đồ gia dụng & Smart home', 'Đồ chơi công nghệ cao', 'Bộ sưu tập giới hạn'].map(item => (
               <li key={item}>
-                <Link href="#" className="text-xs hover:text-orange-500 transition">{item}</Link>
+                <Link href="/products" className="text-xs hover:text-orange-500 transition">{item}</Link>
               </li>
             ))}
           </ul>
         </div>
 
         <div>
-          <h4 className="text-white font-bold text-sm mb-4 uppercase tracking-wider">Hỗ trợ khách hàng</h4>
+          <h4 className="text-white font-bold text-sm mb-4 uppercase tracking-wider">Hỗ trợ & Pháp lý</h4>
           <ul className="space-y-3">
             {[
-              { label: 'Chính sách đổi trả 7 ngày linh hoạt', href: '/chinh-sach#doi-tra' },
-              { label: 'Hướng dẫn mua sắm & Tích điểm', href: '/chinh-sach#faq' },
-              { label: 'Vận chuyển siêu tốc nội thành 2H', href: '/chinh-sach#van-chuyen' },
-              { label: 'Chính sách bảo mật & thanh toán', href: '/chinh-sach#bao-mat' },
-              { label: 'Tra cứu bảo hành chính hãng', href: '/chinh-sach#bao-hanh' },
-              { label: 'Câu hỏi thường gặp (FAQ)', href: '/chinh-sach#faq' },
+              { label: 'Điều khoản sử dụng dịch vụ', href: '/terms' },
+              { label: 'Chính sách bảo mật (NĐ 13/2023)', href: '/privacy' },
+              { label: 'Chính sách đổi trả & hoàn tiền', href: '/returns' },
+              { label: 'Quy trình giải quyết khiếu nại', href: '/dispute' },
+              { label: 'Hướng dẫn thanh toán VietQR PayOS', href: '/terms' },
             ].map(item => (
               <li key={item.label}>
                 <Link href={item.href} className="text-xs hover:text-orange-500 transition">{item.label}</Link>
@@ -130,14 +130,15 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px]">
           <p>© 2026 MTRUONG-STORE. All rights reserved.</p>
           <div className="flex items-center gap-2">
+            <span className="px-2 py-1 bg-[#1E293B] rounded text-[#38bdf8] font-black tracking-wider">PayOS (VietQR)</span>
             <span className="px-2 py-1 bg-[#1E293B] rounded text-slate-300 font-bold tracking-wider">VISA</span>
             <span className="px-2 py-1 bg-[#1E293B] rounded text-slate-300 font-bold tracking-wider">MASTERCARD</span>
             <span className="px-2 py-1 bg-[#1E293B] rounded text-slate-300 font-bold tracking-wider">MOMO</span>
-            <span className="px-2 py-1 bg-[#1E293B] rounded text-slate-300 font-bold tracking-wider">VNPay</span>
           </div>
           <div className="flex gap-6">
-            <Link href="/chinh-sach" className="hover:text-white transition">Điều khoản dịch vụ</Link>
-              <Link href="/chinh-sach#bao-mat" className="hover:text-white transition">Chính sách bảo mật</Link>
+            <Link href="/terms" className="hover:text-white transition">Điều khoản sử dụng</Link>
+            <Link href="/privacy" className="hover:text-white transition">Chính sách bảo mật</Link>
+            <Link href="/returns" className="hover:text-white transition">Đổi trả & Hoàn tiền</Link>
           </div>
         </div>
       </div>
