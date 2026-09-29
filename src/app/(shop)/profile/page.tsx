@@ -31,6 +31,9 @@ export default function ProfilePage() {
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const [twoFactorQrUrl, setTwoFactorQrUrl] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
+  
+  // Avatar View Modal State
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -205,11 +208,17 @@ export default function ProfilePage() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderLeft: '1px solid rgba(255,255,255,0.05)', paddingLeft: '40px' }}>
           
           {/* Avatar Ring */}
-          <div style={{ 
-            width: '120px', height: '120px', borderRadius: '50%', padding: '4px',
-            background: 'linear-gradient(135deg, #f97316, #ea580c)', marginBottom: '24px',
-            boxShadow: '0 10px 25px rgba(249, 115, 22, 0.2)'
-          }}>
+          <div 
+            onClick={() => setIsAvatarModalOpen(true)}
+            style={{ 
+              width: '120px', height: '120px', borderRadius: '50%', padding: '4px',
+              background: 'linear-gradient(135deg, #f97316, #ea580c)', marginBottom: '24px',
+              boxShadow: '0 10px 25px rgba(249, 115, 22, 0.2)', cursor: 'pointer', transition: 'transform 0.2s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            title="Nhấp để xem ảnh"
+          >
             <div style={{ 
               width: '100%', height: '100%', borderRadius: '50%', background: '#111', 
               display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative'
@@ -385,6 +394,34 @@ export default function ProfilePage() {
             <button type="button" onClick={() => setIs2FAModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', padding: '8px' }}>
               Đóng
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Avatar View Modal */}
+      {isAvatarModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, backdropFilter: 'blur(8px)' }} onClick={() => setIsAvatarModalOpen(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: '300px', height: '300px', borderRadius: '50%', background: '#111', overflow: 'hidden', position: 'relative', boxShadow: '0 20px 50px rgba(0,0,0,0.5), 0 0 0 4px rgba(255,255,255,0.1)' }}>
+              {avatarPreview ? (
+                <SafeImage src={avatarPreview} alt="Preview" fill sizes="300px" style={{ objectFit: 'cover' }} />
+              ) : user?.avatar && !avatarLoadError ? (
+                <SafeImage src={user.avatar} alt="Avatar" fill sizes="300px" onImageError={() => setAvatarLoadError(true)} style={{ objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px', fontWeight: 800, color: 'var(--accent)', background: 'linear-gradient(135deg, rgba(249,115,22,0.1), rgba(234,88,12,0.2))' }}>
+                  {initials}
+                </div>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <button type="button" className="btn-primary" onClick={() => { setIsAvatarModalOpen(false); fileInputEl?.click(); }} style={{ padding: '12px 24px', borderRadius: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                Chỉnh sửa ảnh
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setIsAvatarModalOpen(false)} style={{ padding: '12px 24px', borderRadius: '12px', fontWeight: 600, background: 'rgba(255,255,255,0.1)' }}>
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}
