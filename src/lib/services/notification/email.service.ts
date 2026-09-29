@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
 import { createNotificationProvider, type NotificationProvider } from './notification-provider';
+import { Resend } from 'resend';
 
 export interface EmailOptions {
   to: string;
@@ -16,9 +17,23 @@ function recipientHash(recipient: string): string {
 
 export class EmailService {
   static provider: NotificationProvider = createNotificationProvider();
+  static resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+  static fromEmail = env.RESEND_FROM_ADDRESS || 'Acme <onboarding@resend.dev>';
 
   static async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
+      if (this.resend) {
+        await this.resend.emails.send({
+          from: this.fromEmail,
+          to: [options.to],
+          subject: options.subject,
+          text: options.text,
+          html: options.html,
+        });
+        logger.info('resend.email.sent', { recipientHash: recipientHash(options.to) });
+        return true;
+      }
+
       await this.provider.send({
         channel: 'email',
         recipient: options.to,
@@ -33,26 +48,50 @@ export class EmailService {
       logger.info('email.accepted', { recipientHash: recipientHash(options.to), template: 'generic-email' });
       return true;
     } catch (error) {
-      logger.error('email.provider_failed', error, { recipientHash: recipientHash(options.to), template: 'generic-email' });
+      logger.error('email.failed', error, { recipientHash: recipientHash(options.to) });
       return false;
     }
   }
 
   static async sendPasswordResetEmail(email: string, token: string): Promise<boolean> {
     const resetUrl = `${env.NEXT_PUBLIC_APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
-    try {
-      await this.provider.send({
-        channel: 'email',
-        recipient: email,
-        template: 'password-reset',
-        idempotencyKey: createHash('sha256').update(`password-reset:${email}:${token}`).digest('hex'),
-        data: { resetUrl },
-      });
-      logger.info('password_reset_email.accepted', { recipientHash: recipientHash(email), template: 'password-reset' });
-      return true;
-    } catch (error) {
-      logger.error('password_reset_email.provider_failed', error, { recipientHash: recipientHash(email), template: 'password-reset' });
-      return false;
-    }
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Khôi phục mật khẩu</h2>
+        <p>Bạn đã yêu cầu khôi phục mật khẩu. Vui lòng bấm vào nút bên dưới để đổi mật khẩu mới:</p>
+        <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #f97316; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0;">Đổi mật khẩu</a>
+        <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
+        <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
+        <p style="color: #666; font-size: 12px;">Link sẽ hết hạn sau 60 phút.</p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: 'Yêu cầu khôi phục mật khẩu - MTRUONG-STORE',
+      text: `Vui lòng truy cập link sau để khôi phục mật khẩu: ${resetUrl}`,
+      html,
+    });
+  }
+
+  static async sendVerificationEmail(email: string, token: string): Promise<boolean> {
+    const verifyUrl = `${env.NEXT_PUBLIC_APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Xác thực địa chỉ Email</h2>
+        <p>Chào mừng bạn đến với MTRUONG-STORE! Vui lòng xác thực email bằng cách bấm vào nút bên dưới:</p>
+        <a href="${verifyUrl}" style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0;">Xác thực Email</a>
+        <p>Nếu bạn không tạo tài khoản, vui lòng bỏ qua email này.</p>
+        <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
+        <p style="color: #666; font-size: 12px;">Link sẽ hết hạn sau 60 phút.</p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: 'Xác thực tài khoản của bạn - MTRUONG-STORE',
+      text: `Vui lòng truy cập link sau để xác thực email: ${verifyUrl}`,
+      html,
+    });
   }
 }

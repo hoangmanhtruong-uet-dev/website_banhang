@@ -61,9 +61,35 @@ export default function ProfileSidebar() {
           <h2 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px', color: '#fff', position: 'relative', zIndex: 1 }}>{user?.name || 'Trường Developer Hoàng'}</h2>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 16px', position: 'relative', zIndex: 1 }}>{user?.email || 'devhoangtruong@gmail.com'}</p>
           
-          <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 20 }}>
-            VERIFIED VIP MEMBER
-          </div>
+          {/* Verification Status */}
+          {user && !user.isEmailVerified && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginBottom: '16px' }}>
+              <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '12px', color: '#ef4444', fontWeight: 600 }}>Chưa xác thực Email</span>
+                <button 
+                  onClick={async (e) => {
+                    const btn = e.currentTarget;
+                    btn.disabled = true;
+                    btn.innerText = 'Đang gửi...';
+                    try {
+                      const res = await fetch('/api/auth/send-verification', { method: 'POST' });
+                      const data = await res.json();
+                      if (res.ok) addToast('Đã gửi email xác thực, vui lòng kiểm tra hộp thư.');
+                      else addToast(data.error || 'Lỗi gửi email.');
+                    } catch (e) {
+                      addToast('Lỗi kết nối.');
+                    } finally {
+                      btn.innerText = 'Gửi lại';
+                      setTimeout(() => btn.disabled = false, 60000);
+                    }
+                  }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: '12px', fontWeight: 700, cursor: 'pointer', padding: '4px' }}
+                >
+                  Xác thực ngay
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* Seller Status */}
           {user?.isSeller ? (

@@ -9,6 +9,7 @@ interface User {
   email: string;
   role: 'user' | 'admin' | 'shipper';
   isSeller: boolean;
+  isEmailVerified?: boolean;
   phone?: string;
   gender?: string;
   birthday?: string;

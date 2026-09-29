@@ -41,6 +41,16 @@ export async function POST(req: Request) {
       data: { name, email, password: hashedPassword, role: 'user', code },
     });
 
+    // Generate and send email verification token asynchronously
+    try {
+      const { EmailVerificationService } = await import('@/lib/services/auth/email-verification.service');
+      const { EmailService } = await import('@/lib/services/notification/email.service');
+      const token = await EmailVerificationService.createToken(user.id);
+      await EmailService.sendVerificationEmail(user.email, token);
+    } catch (verifyError) {
+      console.error('Failed to send verification email on register:', verifyError);
+    }
+
     const accessToken = await AuthService.signAccessToken({
       userId: user.id,
       email: user.email,
@@ -55,7 +65,7 @@ export async function POST(req: Request) {
     const { refreshToken, expiresAt } = await SessionService.createSession(user.id, userAgent, ipAddress);
 
     const response = NextResponse.json(
-      { message: 'Đăng ký thành công', user: { id: user.id, name: user.name, email: user.email, role: user.role } },
+      { message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.', user: { id: user.id, name: user.name, email: user.email, role: user.role } },
       { status: 201 }
     );
 
