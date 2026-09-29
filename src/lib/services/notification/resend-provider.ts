@@ -59,6 +59,7 @@ export class ResendNotificationProvider implements NotificationProvider {
     const subjects: Record<string, string> = {
       'password-reset': '[MTRUONG-STORE] Đặt lại mật khẩu của bạn',
       'order-confirmed': '[MTRUONG-STORE] Xác nhận đơn hàng',
+      'order-paid': '[MTRUONG-STORE] Thanh toán đơn hàng thành công 🎉',
       'order-shipped': '[MTRUONG-STORE] Đơn hàng đang được giao',
       'order-delivered': '[MTRUONG-STORE] Đơn hàng đã giao thành công',
       'order-cancelled': '[MTRUONG-STORE] Đơn hàng đã bị hủy',
@@ -88,6 +89,28 @@ export class ResendNotificationProvider implements NotificationProvider {
         </p>
       </div>
     `;
+
+    if (template === 'order-paid') {
+      return `
+        <div style="${BASE_STYLE}">
+          ${BRAND_HEADER}
+          <div style="background: #1e293b; padding: 36px 32px;">
+            <h2 style="margin: 0 0 16px; font-size: 20px; color: #10b981;">🎉 Thanh toán đơn hàng thành công!</h2>
+            <p style="color: #94a3b8; line-height: 1.6; margin: 0 0 16px;">
+              Đơn hàng <strong style="color: #f97316;">#${data.orderId ?? ''}</strong> của bạn đã được đối soát thanh toán thành công qua PayOS/VietQR.
+            </p>
+            <div style="background: #0f172a; border-radius: 12px; padding: 16px 20px; margin: 16px 0; border-left: 4px solid #10b981;">
+              <p style="margin: 0; font-size: 13px; color: #94a3b8;">Số tiền đã nhận</p>
+              <p style="margin: 4px 0 0; font-size: 22px; font-weight: 800; color: #10b981;">${data.amount ? Number(data.amount).toLocaleString('vi-VN') + ' ₫' : (data.total ?? '')}</p>
+            </div>
+            <p style="margin: 0; font-size: 13px; color: #64748b;">
+              Nhà bán hàng (Seller) đang được thông báo để tiến hành đóng gói và giao hàng cho bạn trong thời gian sớm nhất.
+            </p>
+          </div>
+          ${FOOTER}
+        </div>
+      `;
+    }
 
     if (template === 'password-reset') {
       const resetUrl = data.resetUrl ?? '#';

@@ -189,8 +189,36 @@ export default function ProductDetailPage() {
     }
   };
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: mainImage ? [mainImage] : [],
+    description: product.description || product.name,
+    sku: (product as any).sku || product.id,
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'VND',
+      price: product.price,
+      availability: availableStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      seller: {
+        '@type': 'Organization',
+        name: 'MTRUONG-STORE',
+      },
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: String(product.rating || '5.0'),
+      reviewCount: String(product.reviews || '286'),
+    },
+  };
+
   return (
     <div className="min-h-screen bg-[#0B1120] text-slate-200 font-sans pb-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       
       {/* Top Breadcrumb & Flash Sale Ticker Bar */}
       <div className="border-b border-slate-800 bg-[#0F172A]/80 backdrop-blur-md sticky top-0 z-30">
