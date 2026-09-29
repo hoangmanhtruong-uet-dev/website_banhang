@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/auth';
 import prisma from '@/lib/db';
-import { authenticator } from 'otplib';
+import speakeasy from 'speakeasy';
 
 export async function POST(request: Request) {
   try {
@@ -29,7 +29,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '2FA đã được bật từ trước' }, { status: 400 });
     }
 
-    const isValid = authenticator.verify({ token, secret: user.twoFactorSecret });
+    const isValid = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token,
+      window: 1 // Allow 30 seconds before/after
+    });
 
     if (!isValid) {
       return NextResponse.json({ error: 'Mã xác thực không chính xác' }, { status: 400 });

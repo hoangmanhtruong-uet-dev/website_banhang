@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/auth';
 import prisma from '@/lib/db';
-import { authenticator } from 'otplib';
+import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 
 export async function POST(request: Request) {
@@ -24,17 +24,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '2FA đã được bật' }, { status: 400 });
     }
 
-    const secret = authenticator.generateSecret();
-    const appName = 'MTRUONG STORE';
-    const otpAuthUrl = authenticator.keyuri(user.email, appName, secret);
-    const qrUrl = await QRCode.toDataURL(otpAuthUrl);
+    const secret = speakeasy.generateSecret({ name: `MTRUONG STORE (${user.email})` });
+    const qrUrl = await QRCode.toDataURL(secret.otpauth_url!);
 
     await prisma.user.update({
       where: { id: session.userId },
-      data: { twoFactorSecret: secret },
+      data: { twoFactorSecret: secret.base32 },
     });
 
-    return NextResponse.json({ qrUrl, secret });
+    return NextResponse.json({ qrUrl, secret: secret.base32 });
   } catch (error) {
     console.error('[2FA_GENERATE]', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });

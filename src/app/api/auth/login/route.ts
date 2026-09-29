@@ -50,8 +50,13 @@ export async function POST(req: Request) {
       if (!twoFactorCode) {
         return NextResponse.json({ requires2FA: true }, { status: 403 });
       }
-      const { authenticator } = await import('otplib');
-      const isValid = authenticator.verify({ token: twoFactorCode, secret: user.twoFactorSecret! });
+      const speakeasy = (await import('speakeasy')).default;
+      const isValid = speakeasy.totp.verify({
+        secret: user.twoFactorSecret!,
+        encoding: 'base32',
+        token: twoFactorCode,
+        window: 1
+      });
       if (!isValid) {
         return NextResponse.json({ error: 'Mã xác thực 2FA không chính xác' }, { status: 401 });
       }
