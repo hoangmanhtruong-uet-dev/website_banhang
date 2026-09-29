@@ -73,22 +73,34 @@ export class WebhookNotificationProvider implements NotificationProvider {
 }
 
 export function createNotificationProvider(): NotificationProvider {
-  if (process.env.NOTIFICATION_PROVIDER !== 'webhook') {
-    if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
-      throw new Error('Log notification provider is not allowed in production');
+  // Priority 1: Resend (recommended — set RESEND_API_KEY in .env)
+  if (process.env.RESEND_API_KEY) {
+    // Lazy import to avoid loading Resend SDK when not needed
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createResendProvider } = require('./resend-provider') as typeof import('./resend-provider');
+    const provider = createResendProvider();
+    if (provider) return provider;
+  }
+
+  // Priority 2: Generic webhook
+  if (process.env.NOTIFICATION_PROVIDER === 'webhook') {
+    const email = process.env.NOTIFICATION_EMAIL_WEBHOOK_URL?.trim();
+    const sms = process.env.NOTIFICATION_SMS_WEBHOOK_URL?.trim();
+    const allowedHosts = new Set((process.env.NOTIFICATION_ALLOWED_HOSTS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean));
+    if ((!email && !sms) || allowedHosts.size === 0) throw new Error('Webhook notification requires endpoint(s) and NOTIFICATION_ALLOWED_HOSTS');
+    for (const endpoint of [email, sms].filter((item): item is string => Boolean(item))) {
+      const url = new URL(endpoint);
+      if (url.protocol !== 'https:' || !allowedHosts.has(url.hostname.toLowerCase())) throw new Error('Notification endpoint must use HTTPS and an allowed hostname');
     }
-    return new LogNotificationProvider();
+    return new WebhookNotificationProvider(
+      { ...(email ? { email } : {}), ...(sms ? { sms } : {}) },
+      process.env.NOTIFICATION_WEBHOOK_TOKEN?.trim(),
+    );
   }
-  const email = process.env.NOTIFICATION_EMAIL_WEBHOOK_URL?.trim();
-  const sms = process.env.NOTIFICATION_SMS_WEBHOOK_URL?.trim();
-  const allowedHosts = new Set((process.env.NOTIFICATION_ALLOWED_HOSTS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean));
-  if ((!email && !sms) || allowedHosts.size === 0) throw new Error('Webhook notification requires endpoint(s) and NOTIFICATION_ALLOWED_HOSTS');
-  for (const endpoint of [email, sms].filter((item): item is string => Boolean(item))) {
-    const url = new URL(endpoint);
-    if (url.protocol !== 'https:' || !allowedHosts.has(url.hostname.toLowerCase())) throw new Error('Notification endpoint must use HTTPS and an allowed hostname');
+
+  // Priority 3: Log (development only)
+  if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
+    throw new Error('Production requires RESEND_API_KEY or NOTIFICATION_PROVIDER=webhook');
   }
-  return new WebhookNotificationProvider(
-    { ...(email ? { email } : {}), ...(sms ? { sms } : {}) },
-    process.env.NOTIFICATION_WEBHOOK_TOKEN?.trim(),
-  );
+  return new LogNotificationProvider();
 }

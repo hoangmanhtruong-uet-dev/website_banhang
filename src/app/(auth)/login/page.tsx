@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { FcGoogle } from 'react-icons/fc';
+import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
 
@@ -149,6 +151,41 @@ export default function LoginPage() {
               `Đăng nhập ${activeTab === 'admin' ? 'Admin' : activeTab === 'shipper' ? 'Shipper' : ''}`
             )}
           </button>
+
+          {activeTab === 'user' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0 16px 0' }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+                <span style={{ margin: '0 12px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>HOẶC</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+              </div>
+
+              <button 
+                type="button" 
+                onClick={async () => {
+                  addToast('Đang kết nối với Google... 🌐');
+                  const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                      redirectTo: `${window.location.origin}/callback`
+                    }
+                  });
+                  if (error) {
+                    addToast('Không thể kết nối Google: ' + error.message);
+                  }
+                }}
+                style={{ 
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                  gap: '10px', padding: '14px', backgroundColor: '#ffffff', color: '#1f2937', 
+                  borderRadius: '16px', border: '1px solid #e5e7eb', 
+                  fontWeight: 700, fontSize: '15px', cursor: 'pointer', transition: 'all 0.2s',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+                }}>
+                <FcGoogle size={22} />
+                Tiếp tục với Google
+              </button>
+            </>
+          )}
 
           {activeTab === 'user' && (
             <p style={{ textAlign:'center', marginTop:'24px', fontSize:'14px', color:'var(--text-muted)' }}>

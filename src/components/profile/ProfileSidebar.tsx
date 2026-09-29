@@ -11,6 +11,7 @@ const menuItems = [
   { label: 'Đơn hàng của tôi', icon: '📦', href: '/profile/orders', color: '#f97316' },
   { label: 'Ngân hàng', icon: '🏦', href: '/profile/bank', color: '#10b981' },
   { label: 'Địa chỉ', icon: '📍', href: '/profile/address', color: '#ef4444' },
+  { label: 'Sản phẩm yêu thích', icon: '💖', href: '/profile/wishlist', color: '#ec4899' },
   { label: 'Đổi mật khẩu', icon: '🔑', href: '/profile/password', color: '#f59e0b' },
   { label: 'Kho Voucher', icon: '🎟️', href: '/profile/vouchers', color: '#ee4d2d' },
   { label: 'Thông Báo', icon: '🔔', href: '/profile/notifications', color: '#ee4d2d' },

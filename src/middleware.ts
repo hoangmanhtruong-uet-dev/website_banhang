@@ -110,7 +110,7 @@ export async function middleware(request: NextRequest) {
     try {
       const payload = await verifyAuthToken(token);
       if (payload.role !== 'admin') {
-        return NextResponse.redirect(new URL('/', request.url));
+        return NextResponse.redirect(new URL('/login', request.url));
       }
     } catch {
       return redirectToLogin(request, pathname);

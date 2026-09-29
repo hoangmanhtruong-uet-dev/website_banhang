@@ -14,7 +14,7 @@ type CheckoutForm = {
   customerEmail: string;
   customerPhone: string;
   shippingAddress: string;
-  paymentMethod: 'COD' | 'Banking' | 'MoMo';
+  paymentMethod: 'COD' | 'Banking' | 'MoMo' | 'VNPay';
 };
 
 interface SavedAddress {
@@ -160,6 +160,50 @@ export default function CheckoutPage() {
         router.push('/profile/orders');
         return;
       }
+      // VNPay — tạo order trước, sau đó redirect sang cổng VNPay
+      if (formData.paymentMethod === 'VNPay') {
+        const orderItems = items.map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price,
+        }));
+        if (!checkoutUserId) throw new Error('Không xác định được người dùng checkout');
+        const requestPayload = { ...formData, paymentMethod: 'COD', items: orderItems }; // tạo order COD trước
+        const idempotencyKey = await getOrCreateCheckoutKey(window.sessionStorage, checkoutUserId, requestPayload);
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+          body: JSON.stringify(requestPayload),
+        });
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error?.message || 'Lỗi khi tạo đơn hàng');
+        }
+        const order = await res.json();
+
+        // Tạo URL redirect sang VNPay
+        const vnpayRes = await fetch('/api/payments/vnpay/create-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: order.id,
+            amount: Math.round(Number(getTotal())),
+            orderInfo: `Thanh toan don hang ${order.id.slice(-8).toUpperCase()}`,
+          }),
+        });
+
+        if (!vnpayRes.ok) {
+          // VNPay chưa cấu hình — fallback về internal wallet demo
+          addToast('VNPay chưa được cấu hình. Sử dụng phương thức thanh toán khác.');
+          return;
+        }
+
+        const { paymentUrl } = await vnpayRes.json();
+        clearCheckoutKey(window.sessionStorage);
+        clearCart();
+        window.location.href = paymentUrl; // Redirect sang VNPay
+        return;
+      }
 
       if (typeof window !== 'undefined') {
         if (!checkoutUserId) throw new Error('Không xác định được người dùng checkout');
@@ -257,24 +301,35 @@ export default function CheckoutPage() {
           </div>
 
           <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>Phương thức thanh toán</h3>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-            {(['COD', 'Banking', 'MoMo'] as const).map((method) => (
-              <button key={method} type="button"
-                onClick={() => setFormData({ ...formData, paymentMethod: method })}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            {([
+              { key: 'COD', label: '🚚 COD', desc: 'Thanh toán khi nhận hàng' },
+              { key: 'Banking', label: '🏦 Banking', desc: 'Ví nội bộ demo' },
+              { key: 'MoMo', label: '💗 MoMo', desc: 'Ví nội bộ demo' },
+              { key: 'VNPay', label: '🔵 VNPay', desc: 'Cổng thanh toán thật' },
+            ] as const).map((method) => (
+              <button key={method.key} type="button"
+                onClick={() => setFormData({ ...formData, paymentMethod: method.key })}
+                title={method.desc}
                 style={{
-                  flex: 1, padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
-                  background: formData.paymentMethod === method ? 'var(--accent)' : 'transparent',
-                  color: formData.paymentMethod === method ? 'white' : 'var(--text-primary)',
-                  cursor: 'pointer',
+                  flex: '1 1 calc(50% - 6px)', minWidth: '100px', padding: '12px 8px', borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border)',
+                  background: formData.paymentMethod === method.key ? 'var(--accent)' : 'transparent',
+                  color: formData.paymentMethod === method.key ? 'white' : 'var(--text-primary)',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 600,
                 }}
               >
-                {method}
+                {method.label}
               </button>
             ))}
           </div>
           {formData.paymentMethod === 'COD' ? (
             <p style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
               Bạn sẽ thanh toán khi nhận hàng. Đơn được tạo ngay sau khi xác nhận.
+            </p>
+          ) : formData.paymentMethod === 'VNPay' ? (
+            <p style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
+              🔵 Bạn sẽ được chuyển sang <strong style={{ color: '#38bdf8' }}>cổng thanh toán VNPay thật</strong> — hỗ trợ ATM nội địa, Visa/Master, QR Code.
             </p>
           ) : (
             <p style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>

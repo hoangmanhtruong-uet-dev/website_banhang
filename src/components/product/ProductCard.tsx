@@ -9,16 +9,17 @@ import { DEFAULT_PRODUCT_IMAGE, getProductImage } from '@/lib/upload/product-ima
 import SafeImage from '@/components/common/SafeImage';
 import { useAuthStore } from '@/store/authStore';
 import { usePathname, useRouter } from 'next/navigation';
+import { FiShoppingCart, FiStar } from 'react-icons/fi';
 
-function getBadgeClass(badge?: string) {
-  if (!badge) return '';
+function getBadgeColors(badge?: string) {
+  if (!badge) return 'bg-blue-500 text-white';
   const b = badge.toLowerCase();
-  if (b === 'hot') return 'badge-hot';
-  if (b === 'sale') return 'badge-sale';
-  if (b === 'mới' || b === 'new') return 'badge-new';
-  if (b === 'bán chạy') return 'badge-bestseller';
-  if (b === 'premium') return 'badge-premium';
-  return 'badge-new';
+  if (b === 'hot' || b === 'hot trend') return 'bg-orange-500 text-white';
+  if (b === 'sale' || b.includes('%')) return 'bg-rose-500 text-white';
+  if (b === 'mới' || b === 'new') return 'bg-cyan-500 text-white';
+  if (b === 'bán chạy' || b === 'best seller') return 'bg-emerald-500 text-white';
+  if (b === 'premium') return 'bg-purple-500 text-white';
+  return 'bg-blue-500 text-white';
 }
 
 type ProductCardProps = {
@@ -34,7 +35,7 @@ export default function ProductCard({ product, index = 0, imagePriority = false 
   const pathname = usePathname();
   const [added, setAdded] = useState(false);
   const image = getProductImage(product);
-  const category = product.category || product.categoryRef?.name || 'S\u1ea3n ph\u1ea9m';
+  const category = product.category || product.categoryRef?.name || 'Sản phẩm';
   const availableStock = getAvailableStock(product);
   const hasDiscount = Boolean(product.originalPrice && compareMoneyStrings(product.originalPrice, product.price) > 0);
 
@@ -52,10 +53,9 @@ export default function ProductCard({ product, index = 0, imagePriority = false 
   };
 
   return (
-    <Link href={`/products/${product.id}`} className="glass-card product-card"
-      style={{ display:'block', overflow:'hidden', height:'100%' }}>
-      <div style={{ animation:`fadeInUp 0.6s ease-out ${index * 0.08}s forwards`, opacity:0, display:'flex', flexDirection:'column', height:'100%' }}>
-        <div className="product-image" style={{ background: product.gradient, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <Link href={`/products/${product.id}`} className="block h-full bg-[#1E293B] hover:bg-[#273549] border border-slate-700 hover:border-slate-500 rounded-2xl overflow-hidden transition duration-300 group">
+      <div className="flex flex-col h-full">
+        <div className="relative h-48 bg-[#0F172A] flex items-center justify-center overflow-hidden">
           <SafeImage
             src={image}
             alt={product.name}
@@ -64,55 +64,57 @@ export default function ProductCard({ product, index = 0, imagePriority = false 
             priority={imagePriority}
             sizes="(max-width: 640px) 46vw, (max-width: 1024px) 31vw, 280px"
             style={{ objectFit: 'cover' }}
+            className="group-hover:scale-105 transition-transform duration-500"
           />
-          {product.badge && (
-            <span className={`badge ${getBadgeClass(product.badge)}`}
-              style={{ position:'absolute', top:'12px', left:'12px', zIndex:2 }}>
-              {product.badge}
-            </span>
-          )}
-          {hasDiscount && product.originalPrice && (
-            <span style={{ position:'absolute', top:'12px', right:'12px', zIndex:2,
-              background:'rgba(239,68,68,0.9)', color:'#fff',
-              fontSize:'11px', fontWeight:700, padding:'4px 8px', borderRadius:'6px' }}>
-              -{percentageOff(product.price, product.originalPrice)}%
-            </span>
-          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] via-transparent to-transparent opacity-60"></div>
+          
+          <div className="absolute top-3 left-3 flex gap-2">
+            {product.badge && (
+              <span className={`px-2 py-1 text-[9px] font-bold uppercase rounded tracking-wider ${getBadgeColors(product.badge)}`}>
+                {product.badge}
+              </span>
+            )}
+            {hasDiscount && product.originalPrice && (
+              <span className="px-2 py-1 bg-rose-500 text-white text-[9px] font-bold uppercase rounded tracking-wider">
+                -{percentageOff(product.price, product.originalPrice)}%
+              </span>
+            )}
+          </div>
+          
+          <button className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 transition">
+             <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="18" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+          </button>
         </div>
-        <div style={{ padding:'16px', display:'flex', flexDirection:'column', flex:'1 1 auto' }}>
-          <p style={{ fontSize:'12px', color:'var(--accent)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'6px' }}>
-            {category}
-          </p>
-          <h3 style={{ fontSize:'15px', fontWeight:600, marginBottom:'8px', lineHeight:'1.4',
-            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+        
+        <div className="p-4 flex flex-col flex-1">
+          <div className="flex items-center justify-between mb-2">
+             <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">{category}</p>
+             <div className="flex items-center gap-1 text-[10px] text-slate-300 font-bold">
+               <FiStar className="text-orange-400 fill-orange-400" /> {product.rating.toFixed(1)} <span className="text-slate-500 font-normal">({product.reviews})</span>
+             </div>
+          </div>
+          
+          <h3 className="text-sm font-bold text-white mb-2 line-clamp-2 leading-snug group-hover:text-orange-400 transition-colors">
             {product.name}
           </h3>
-          <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'10px' }}>
-            <div className="stars">
-              {[1,2,3,4,5].map(s => (
-                <span key={s} className={`star ${s <= Math.round(product.rating) ? 'filled' : ''}`}>★</span>
-              ))}
-            </div>
-            <span style={{ fontSize:'12px', color:'var(--text-muted)' }}>({product.reviews})</span>
-          </div>
-          <div style={{ display:'grid', gridTemplateColumns:'minmax(0, 1fr) 42px', alignItems:'center', gap:'12px', marginTop:'auto' }}>
-            <div style={{ minWidth:0, overflow:'hidden' }}>
-              <span style={{ display:'block', fontSize:'17px', fontWeight:700, color:'var(--accent)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{formatPrice(product.price)}</span>
+          
+          <div className="flex items-end justify-between mt-auto pt-2 border-t border-slate-700/50">
+            <div>
+              <p className="text-base font-black text-orange-500">{formatPrice(product.price)}</p>
               {hasDiscount && product.originalPrice && (
-                <span style={{ display:'block', fontSize:'12px', color:'var(--text-muted)', textDecoration:'line-through', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                  {formatPrice(product.originalPrice)}
-                </span>
+                <p className="text-[10px] text-slate-500 line-through mt-0.5">{formatPrice(product.originalPrice)}</p>
               )}
             </div>
-            <button onClick={handleAdd} disabled={isLoading || availableStock <= 0} aria-label={isAuthenticated ? 'Add to cart' : 'Login to add to cart'} style={{
-              width:'42px', minWidth:'42px', height:'42px', borderRadius:'50%',
-              background: added ? 'var(--success)' : 'var(--accent-gradient)',
-              border:'none', cursor: availableStock > 0 ? 'pointer' : 'not-allowed', display:'flex',
-              alignItems:'center', justifyContent:'center',
-              transition:'all 0.3s ease', fontSize:'16px',
-              transform: added ? 'scale(1.1)' : 'scale(1)',
-            }}>
-              {availableStock <= 0 ? '×' : added ? '✓' : '+'}
+            
+            <button 
+              onClick={handleAdd} 
+              disabled={isLoading || availableStock <= 0}
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md ${
+                availableStock <= 0 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 
+                added ? 'bg-emerald-500 text-white scale-110' : 'bg-orange-500 hover:bg-orange-600 text-white hover:scale-105'
+              }`}
+            >
+              {availableStock <= 0 ? 'Hết' : added ? '✓' : <FiShoppingCart size={16} />}
             </button>
           </div>
         </div>

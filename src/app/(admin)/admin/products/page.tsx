@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatPrice } from '@/lib/utils';
 import { useToastStore } from '@/components/ui/Toast';
 import SafeImage from '@/components/common/SafeImage';
@@ -12,6 +13,7 @@ export default function AdminProductsPage() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const addToast = useToastStore(s => s.addToast);
+  const router = useRouter();
 
   const fetchAllProducts = useCallback(async () => {
     try {
@@ -249,7 +251,7 @@ export default function AdminProductsPage() {
                   <td style={{ padding: '20px', fontSize: '13px' }}>⭐ {p.rating} ({p.reviews})</td>
                   <td style={{ padding: '20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      <button onClick={() => updateImage(p.id, p.image)} style={{ padding: '8px 12px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', cursor: 'pointer', fontSize: '12px' }}>
+                      <button onClick={() => router.push(`/admin/image-editor?productId=${p.id}&imageUrl=${encodeURIComponent(p.image || '')}`)} style={{ padding: '8px 12px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', cursor: 'pointer', fontSize: '12px' }}>
                         Sửa ảnh
                       </button>
                       <button onClick={() => toggleStock(p.id, p.inStock)} style={{ padding: '8px 12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}>

@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { FcGoogle } from 'react-icons/fc';
+import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/components/ui/Toast';
 
@@ -67,7 +69,39 @@ export default function RegisterPage() {
             style={{ width:'100%', justifyContent:'center', padding:'14px', opacity: loading ? 0.7 : 1 }}>
             {loading ? 'Đang tạo tài khoản...' : 'Đăng ký'}
           </button>
-          <p style={{ textAlign:'center', marginTop:'20px', fontSize:'14px', color:'var(--text-muted)' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0 16px 0' }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+            <span style={{ margin: '0 12px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>HOẶC</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+          </div>
+
+          <button 
+            type="button" 
+            onClick={async () => {
+              addToast('Đang kết nối với Google... 🌐');
+              const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                  redirectTo: `${window.location.origin}/callback`
+                }
+              });
+              if (error) {
+                addToast('Không thể kết nối Google: ' + error.message);
+              }
+            }}
+            style={{ 
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              gap: '10px', padding: '12px', backgroundColor: '#ffffff', color: '#1f2937', 
+              borderRadius: 'var(--radius-md)', border: '1px solid #e5e7eb', 
+              fontWeight: 600, fontSize: '14.5px', cursor: 'pointer', transition: 'all 0.2s',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+            }}>
+            <FcGoogle size={20} />
+            Đăng ký bằng Google
+          </button>
+
+          <p style={{ textAlign:'center', marginTop:'24px', fontSize:'14px', color:'var(--text-muted)' }}>
             Đã có tài khoản? <Link href={loginHref} style={{ color:'var(--accent)', fontWeight:600 }}>Đăng nhập</Link>
           </p>
         </form>

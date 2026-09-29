@@ -1,18 +1,38 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import ProductCard from '@/components/product/ProductCard';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Product } from '@/types/product';
 
 export default function ProductsPage() {
   const searchParams = useSearchParams();
-  const initialCat = searchParams.get('category') || 'Tất cả';
-  const [selectedCategory, setSelectedCategory] = useState(initialCat);
+  const router = useRouter();
+  const categoryFromUrl = searchParams.get('category') || 'Tất cả';
+  const searchFromUrl = searchParams.get('search') || '';
+  
+  const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl);
   const [sortBy, setSortBy] = useState('default');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchFromUrl);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>(['Tất cả']);
   const [loading, setLoading] = useState(true);
+
+  // Cập nhật selectedCategory & searchQuery khi URL query parameter thay đổi
+  useEffect(() => {
+    setSelectedCategory(categoryFromUrl);
+    setSearchQuery(searchFromUrl);
+  }, [categoryFromUrl, searchFromUrl]);
+
+  const handleCategorySelect = (cat: string) => {
+    setSelectedCategory(cat);
+    const params = new URLSearchParams(searchParams.toString());
+    if (cat !== 'Tất cả') {
+      params.set('category', cat);
+    } else {
+      params.delete('category');
+    }
+    router.push(`/products${params.toString() ? '?' + params.toString() : ''}`);
+  };
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -80,7 +100,7 @@ export default function ProductsPage() {
       {/* Category Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', flexWrap: 'wrap' }}>
         {categories.map(cat => (
-          <button key={cat} onClick={() => setSelectedCategory(cat)}
+          <button key={cat} onClick={() => handleCategorySelect(cat)}
             style={{
               padding: '8px 20px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
               border: '1px solid', transition: 'all 0.3s ease',

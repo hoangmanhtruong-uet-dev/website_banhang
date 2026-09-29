@@ -30,7 +30,18 @@ export const envSchema = z.object({
   S3_ENDPOINT: z.string().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
-  
+
+  // Email (Resend.com — recommended)
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_ADDRESS: z.string().optional(),
+
+  // VNPay Payment Gateway
+  VNPAY_TMN_CODE: z.string().optional(),
+  VNPAY_HASH_SECRET: z.string().optional(),
+  VNPAY_URL: z.string().url().optional(),
+  VNPAY_RETURN_URL: z.string().url().optional(),
+  VNPAY_IPN_URL: z.string().url().optional(),
+
   // Optional but recommended
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),

@@ -1,18 +1,11 @@
-'use client';
-import ProfileSidebar from '@/components/profile/ProfileSidebar';
+import { Metadata } from 'next';
+import ProfileLayoutClient from './ProfileLayoutClient';
+
+export const metadata: Metadata = {
+  title: 'Hồ sơ cá nhân | MTRUONG-STORE',
+  description: 'Quản lý thông tin cá nhân, địa chỉ, ngân hàng và lịch sử đơn hàng tại MTRUONG-STORE.',
+};
 
 export default function ProfileLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="page-container" style={{ paddingTop: '40px', paddingBottom: '80px' }}>
-      <div className="profile-layout">
-        {/* Sidebar duy nhất */}
-        <ProfileSidebar />
-
-        {/* Nội dung trang bên phải */}
-        <main style={{ minWidth: 0 }}>
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  return <ProfileLayoutClient>{children}</ProfileLayoutClient>;
 }

@@ -17,7 +17,14 @@ export async function GET(req: Request) {
     const direction: Prisma.SortOrder = searchParams.get('order') === 'asc' ? 'asc' : 'desc';
     const where: Prisma.ProductWhereInput = { deletedAt: null };
     if (category && category !== 'Tất cả') where.categoryRef = { name: category };
-    if (search) where.name = { contains: search };
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { description: { contains: search } },
+        { sku: { contains: search } },
+        { code: { contains: search } },
+      ];
+    }
     const validSortFields = new Set(['price', 'rating', 'name', 'createdAt']);
     const sortField = validSortFields.has(sortBy) ? sortBy : 'createdAt';
     const orderBy = { [sortField]: direction } as Prisma.ProductOrderByWithRelationInput;

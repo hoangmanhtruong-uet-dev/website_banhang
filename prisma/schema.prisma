@@ -92,6 +92,8 @@ model User {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   reviews             Review[]
+  wishlists           Wishlist[]
+  notifications       Notification[]
   orders              Order[]
   shipperOrders       Order[]              @relation("ShipperOrders")
   sellerFulfillments  SellerFulfillment[]  @relation("SellerFulfillments")
@@ -236,11 +238,13 @@ model Product {
   deletedById           String?
   orderItems            OrderItem[]
   reviewsData           Review[]
+  wishlists             Wishlist[]
   sellerId              String?
   seller                User?                  @relation("UserProducts", fields: [sellerId], references: [id])
   images                ProductImage[]
   inventoryReservations InventoryReservation[]
   inventoryMovements    InventoryMovement[]
+  flashSaleItems        FlashSaleItem[]
 
   @@index([sellerId])
   @@index([sellerId, deletedAt, createdAt], map: "product_seller_deleted_created_idx")
@@ -248,6 +252,36 @@ model Product {
   @@index([categoryId])
   @@index([code])
   @@map("product")
+}
+
+model FlashSaleEvent {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(191)
+  startTime DateTime
+  endTime   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     FlashSaleItem[]
+
+  @@index([isActive, startTime, endTime])
+  @@map("flash_sale_event")
+}
+
+model FlashSaleItem {
+  id              String         @id @default(cuid())
+  eventId         String
+  productId       String
+  discountPercent Int            @default(0)
+  stockQuantity   Int            @default(0)
+  soldQuantity    Int            @default(0)
+
+  event           FlashSaleEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, productId])
+  @@map("flash_sale_item")
 }
 
 model Category {
@@ -278,6 +312,20 @@ model Review {
   @@index([userId])
   @@index([productId])
   @@map("review")
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("wishlist")
 }
 
 model Order {
@@ -785,6 +833,23 @@ model NotificationDelivery {
   @@index([status, createdAt], map: "notification_status_created_idx")
   @@map("notification_delivery")
 }
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  type      String   @default("info") // info, success, warning, error
+  link      String?  // Optional link to related entity
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, read])
+  @@map("notification")
+}
+
 
 model WalletLedger {
   id               String   @id @default(cuid())
