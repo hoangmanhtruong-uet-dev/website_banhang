@@ -1,13 +1,13 @@
 /** @type {import('next').NextConfig} */
 const cloudinaryCloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
-const cloudinaryRemotePatterns = cloudinaryCloudName && /^[a-zA-Z0-9_-]+$/.test(cloudinaryCloudName)
-  ? [{
-      protocol: 'https',
-      hostname: 'res.cloudinary.com',
-      port: '',
-      pathname: '/' + cloudinaryCloudName + '/image/upload/**',
-    }]
-  : [];
+const cloudinaryRemotePatterns = [
+  {
+    protocol: 'https',
+    hostname: 'res.cloudinary.com',
+    port: '',
+    pathname: '/**',
+  }
+];
 
 const nextConfig = {
   // Standard Next.js server configuration for Render

@@ -23,14 +23,21 @@ export class EmailService {
   static async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
       if (this.resend) {
-        await this.resend.emails.send({
+        const { data, error } = await this.resend.emails.send({
           from: this.fromEmail,
           to: [options.to],
           subject: options.subject,
           text: options.text,
           html: options.html,
         });
-        logger.info('resend.email.sent', { recipientHash: recipientHash(options.to) });
+        
+        if (error) {
+          logger.error('resend.email.failed', error, { recipientHash: recipientHash(options.to) });
+          console.error('Resend Error:', error);
+          return false;
+        }
+
+        logger.info('resend.email.sent', { recipientHash: recipientHash(options.to), id: data?.id });
         return true;
       }
 

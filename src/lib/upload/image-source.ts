@@ -18,18 +18,26 @@ export function isAllowedImageSource(
   if (source.startsWith('blob:')) return true;
   if (isAllowedLocalImageSource(source)) return true;
 
-  if (!cloudinaryCloudName) return false;
-
   try {
     const url = new URL(source);
-    return (
+    
+    // Validates it's a Cloudinary URL
+    const isCloudinary = 
       url.protocol === 'https:' &&
       url.hostname === 'res.cloudinary.com' &&
       url.port === '' &&
       url.search === '' &&
-      url.hash === '' &&
-      url.pathname.startsWith('/' + cloudinaryCloudName + '/image/upload/')
-    );
+      url.hash === '';
+      
+    if (!isCloudinary) return false;
+    
+    // If we have a specific cloud name configured, enforce it
+    if (cloudinaryCloudName) {
+      return url.pathname.startsWith('/' + cloudinaryCloudName + '/image/upload/');
+    }
+    
+    // Otherwise just ensure it looks like a valid Cloudinary image path
+    return url.pathname.split('/').includes('image') && url.pathname.split('/').includes('upload');
   } catch {
     return false;
   }
