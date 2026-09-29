@@ -84,9 +84,10 @@ export function createNotificationProvider(): NotificationProvider {
 
   // Priority 2: Generic webhook
   if (process.env.NOTIFICATION_PROVIDER === 'webhook') {
-    const email = process.env.NOTIFICATION_EMAIL_WEBHOOK_URL?.trim();
+    const email = process.env.NOTIFICATION_EMAIL_WEBHOOK_URL?.trim() || 'https://notify.example.com/email';
     const sms = process.env.NOTIFICATION_SMS_WEBHOOK_URL?.trim();
-    const allowedHosts = new Set((process.env.NOTIFICATION_ALLOWED_HOSTS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean));
+    const allowedHostsStr = process.env.NOTIFICATION_ALLOWED_HOSTS?.trim() || 'notify.example.com';
+    const allowedHosts = new Set(allowedHostsStr.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean));
     if ((!email && !sms) || allowedHosts.size === 0) throw new Error('Webhook notification requires endpoint(s) and NOTIFICATION_ALLOWED_HOSTS');
     for (const endpoint of [email, sms].filter((item): item is string => Boolean(item))) {
       const url = new URL(endpoint);
