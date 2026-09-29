@@ -15,7 +15,7 @@ class LocalStorageAdapter implements StorageAdapter {
   private uploadDir: string;
 
   constructor() {
-    this.uploadDir = path.resolve(process.cwd(), env.UPLOAD_DIR);
+    this.uploadDir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), env.UPLOAD_DIR);
   }
 
   private resolveKey(key: string): string {

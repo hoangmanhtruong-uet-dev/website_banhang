@@ -41,6 +41,8 @@
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^25.9.4",
     "@types/react": "^19.2.14",
+    "@types/qrcode": "^1.5.6",
+    "@types/speakeasy": "^2.0.10",
     "autoprefixer": "^10.4.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
@@ -67,8 +69,6 @@
     "zustand": "^4.4.0"
   },
   "devDependencies": {
-    "@types/qrcode": "^1.5.6",
-    "@types/speakeasy": "^2.0.10",
     "eslint": "^8.0.0"
   },
   "overrides": {
