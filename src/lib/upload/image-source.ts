@@ -21,23 +21,11 @@ export function isAllowedImageSource(
   try {
     const url = new URL(source);
     
-    // Validates it's a Cloudinary URL
-    const isCloudinary = 
-      url.protocol === 'https:' &&
-      url.hostname === 'res.cloudinary.com' &&
-      url.port === '' &&
-      url.search === '' &&
-      url.hash === '';
-      
-    if (!isCloudinary) return false;
-    
-    // If we have a specific cloud name configured, enforce it
-    if (cloudinaryCloudName) {
-      return url.pathname.startsWith('/' + cloudinaryCloudName + '/image/upload/');
+    if (url.protocol === 'https:' && url.hostname === 'res.cloudinary.com') {
+      return true;
     }
     
-    // Otherwise just ensure it looks like a valid Cloudinary image path
-    return url.pathname.split('/').includes('image') && url.pathname.split('/').includes('upload');
+    return false;
   } catch {
     return false;
   }
