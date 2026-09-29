@@ -22,7 +22,7 @@ export const POST = createHandler(async (req: NextRequest) => {
   const parsed = orderRequestSchema.parse(await req.json());
   const { paymentPin, bankId, paymentPhone, ...orderInput } = parsed;
 
-  if (parsed.paymentMethod !== 'COD') {
+  if (['Banking', 'MoMo'].includes(parsed.paymentMethod)) {
     await verifyPaymentPinOrThrow(session.userId, paymentPin);
   }
 

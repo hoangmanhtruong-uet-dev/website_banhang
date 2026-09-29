@@ -59,7 +59,7 @@ export const orderRequestSchema = orderBaseSchema.extend({
   if (data.paymentMethod === 'MoMo' && !data.paymentPhone) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng nhập số điện thoại MoMo', path: ['paymentPhone'] });
   }
-  if (data.paymentMethod !== 'COD' && !data.paymentPin) {
+  if (['Banking', 'MoMo'].includes(data.paymentMethod) && !data.paymentPin) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Vui lòng nhập mã PIN giao dịch', path: ['paymentPin'] });
   }
 });
