@@ -14,7 +14,7 @@ type CheckoutForm = {
   customerEmail: string;
   customerPhone: string;
   shippingAddress: string;
-  paymentMethod: 'COD' | 'Banking' | 'MoMo' | 'VNPay';
+  paymentMethod: 'COD' | 'Banking' | 'MoMo' | 'PayOS';
 };
 
 interface SavedAddress {
@@ -160,15 +160,15 @@ export default function CheckoutPage() {
         router.push('/profile/orders');
         return;
       }
-      // VNPay — tạo order trước, sau đó redirect sang cổng VNPay
-      if (formData.paymentMethod === 'VNPay') {
+      // PayOS — tạo order và redirect sang link thanh toán
+      if (formData.paymentMethod === 'PayOS') {
         const orderItems = items.map(item => ({
           productId: item.product.id,
           quantity: item.quantity,
           price: item.product.price,
         }));
         if (!checkoutUserId) throw new Error('Không xác định được người dùng checkout');
-        const requestPayload = { ...formData, paymentMethod: 'COD', items: orderItems }; // tạo order COD trước
+        const requestPayload = { ...formData, items: orderItems };
         const idempotencyKey = await getOrCreateCheckoutKey(window.sessionStorage, checkoutUserId, requestPayload);
         const res = await fetch('/api/orders', {
           method: 'POST',
@@ -181,28 +181,15 @@ export default function CheckoutPage() {
         }
         const order = await res.json();
 
-        // Tạo URL redirect sang VNPay
-        const vnpayRes = await fetch('/api/payments/vnpay/create-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderId: order.id,
-            amount: Math.round(Number(getTotal())),
-            orderInfo: `Thanh toan don hang ${order.id.slice(-8).toUpperCase()}`,
-          }),
-        });
-
-        if (!vnpayRes.ok) {
-          // VNPay chưa cấu hình — fallback về internal wallet demo
-          addToast('VNPay chưa được cấu hình. Sử dụng phương thức thanh toán khác.');
+        if (order.checkoutUrl) {
+          clearCheckoutKey(window.sessionStorage);
+          clearCart();
+          window.location.href = order.checkoutUrl; // Redirect sang PayOS
+          return;
+        } else {
+          addToast('Lỗi tạo link thanh toán PayOS');
           return;
         }
-
-        const { paymentUrl } = await vnpayRes.json();
-        clearCheckoutKey(window.sessionStorage);
-        clearCart();
-        window.location.href = paymentUrl; // Redirect sang VNPay
-        return;
       }
 
       if (typeof window !== 'undefined') {
@@ -306,7 +293,7 @@ export default function CheckoutPage() {
               { key: 'COD', label: '🚚 COD', desc: 'Thanh toán khi nhận hàng' },
               { key: 'Banking', label: '🏦 Banking', desc: 'Ví nội bộ demo' },
               { key: 'MoMo', label: '💗 MoMo', desc: 'Ví nội bộ demo' },
-              { key: 'VNPay', label: '🔵 VNPay', desc: 'Cổng thanh toán thật' },
+              { key: 'PayOS', label: '🔵 PayOS', desc: 'Thanh toán qua mã VietQR' },
             ] as const).map((method) => (
               <button key={method.key} type="button"
                 onClick={() => setFormData({ ...formData, paymentMethod: method.key })}
@@ -327,9 +314,9 @@ export default function CheckoutPage() {
             <p style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
               Bạn sẽ thanh toán khi nhận hàng. Đơn được tạo ngay sau khi xác nhận.
             </p>
-          ) : formData.paymentMethod === 'VNPay' ? (
+          ) : formData.paymentMethod === 'PayOS' ? (
             <p style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
-              🔵 Bạn sẽ được chuyển sang <strong style={{ color: '#38bdf8' }}>cổng thanh toán VNPay thật</strong> — hỗ trợ ATM nội địa, Visa/Master, QR Code.
+              🔵 Bạn sẽ được chuyển sang <strong style={{ color: '#38bdf8' }}>cổng thanh toán VietQR của PayOS</strong>, quét mã để thanh toán.
             </p>
           ) : (
             <p style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>

@@ -42,7 +42,7 @@ const orderBaseSchema = z.object({
   customerEmail: z.string().email('Email không hợp lệ'),
   customerPhone: z.string().regex(/^0\d{9}$/, 'Số điện thoại không hợp lệ'),
   shippingAddress: z.string().min(10, 'Vui lòng nhập địa chỉ đầy đủ'),
-  paymentMethod: z.enum(['COD', 'Banking', 'MoMo']),
+  paymentMethod: z.enum(['COD', 'Banking', 'MoMo', 'PayOS']),
 });
 
 export const orderSchema = orderBaseSchema;

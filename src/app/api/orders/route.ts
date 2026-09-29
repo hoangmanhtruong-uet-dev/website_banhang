@@ -41,7 +41,38 @@ export const POST = createHandler(async (req: NextRequest) => {
     request: safeRequest,
     handler: async (tx) => {
       const order = await OrderService.createOrderInTransaction(tx, { ...orderInput, userId: session.userId, idempotencyKey });
-      return { status: 201, body: order, resourceType: 'order', resourceId: order.id };
+      
+      let checkoutUrl = null;
+      if (orderInput.paymentMethod === 'PayOS') {
+        const payOS = (await import('@/lib/payment/payos')).default;
+        
+        // Tạo orderCode từ ID (số) hoặc random, PayOS yêu cầu number <= 9007199254740991
+        const orderCode = Math.floor(Math.random() * 1000000000); 
+
+        const paymentData = {
+          orderCode,
+          amount: Number(order.total),
+          description: `Thanh toan DH ${order.id.slice(0, 5)}`,
+          returnUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/checkout/payment?status=success&orderId=${order.id}`,
+          cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/checkout/payment?status=cancel&orderId=${order.id}`,
+        };
+        
+        try {
+          const paymentLink = await payOS.createPaymentLink(paymentData);
+          checkoutUrl = paymentLink.checkoutUrl;
+          
+          // Lưu orderCode vào Order.idempotencyScope để Webhook mapping
+          await tx.order.update({
+            where: { id: order.id },
+            data: { idempotencyScope: String(orderCode) }
+          });
+        } catch (error) {
+          console.error("PayOS Error:", error);
+          throw new ValidationError('Không thể tạo link thanh toán PayOS');
+        }
+      }
+
+      return { status: 201, body: { ...order, checkoutUrl }, resourceType: 'order', resourceId: order.id };
     },
   });
 
