@@ -39,6 +39,21 @@ export default function LoginPage() {
     }
 
     if (loginResult.ok) {
+      const user = useAuthStore.getState().user;
+      
+      if (activeTab === 'admin' && (!user || user.role !== 'admin')) {
+        setError('Tài khoản của bạn không có quyền Quản trị viên.');
+        useAuthStore.getState().logout();
+        setLoading(false);
+        return;
+      }
+      if (activeTab === 'shipper' && (!user || user.role !== 'shipper')) {
+        setError('Tài khoản của bạn không có quyền Giao hàng.');
+        useAuthStore.getState().logout();
+        setLoading(false);
+        return;
+      }
+
       const roleName = activeTab === 'admin' ? 'Quản trị viên' : activeTab === 'shipper' ? 'Người giao hàng' : 'Người dùng';
       addToast(`Đăng nhập thành công với tư cách ${roleName}! 🎉`);
       

@@ -11,6 +11,9 @@ export default function SellerRegisterPage() {
   const [saving, setSaving] = useState(false);
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   
+  const [uploadingFront, setUploadingFront] = useState(false);
+  const [uploadingBack, setUploadingBack] = useState(false);
+  
   const [form, setForm] = useState({
     businessName: '',
     taxCode: '',
@@ -28,6 +31,35 @@ export default function SellerRegisterPage() {
       .then(data => { if (data) setStatus(data); })
       .catch(e => console.error(e));
   }, []);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'identityFrontUrl' | 'identityBackUrl') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast('Ảnh không được vượt quá 5MB', 'error');
+      return;
+    }
+
+    if (field === 'identityFrontUrl') setUploadingFront(true);
+    else setUploadingBack(true);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lỗi tải ảnh lên');
+      
+      setForm(prev => ({ ...prev, [field]: data.url }));
+      toast('Tải ảnh thành công');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Lỗi tải ảnh lên', 'error');
+    } finally {
+      if (field === 'identityFrontUrl') setUploadingFront(false);
+      else setUploadingBack(false);
+    }
+  };
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -167,33 +199,45 @@ export default function SellerRegisterPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             <div>
-              <Label text="URL Ảnh mặt trước Giấy tờ (Cloudinary)" required />
-              <div className="upload-zone" style={{ padding: '30px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '12px', background: 'rgba(0,0,0,0.2)' }}>
-                {form.identityFrontUrl ? (
+              <Label text="Ảnh mặt trước Giấy tờ" required />
+              <div 
+                className="upload-zone" 
+                style={{ position: 'relative', padding: '30px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '12px', background: 'rgba(0,0,0,0.2)', cursor: (isPending || isApproved || uploadingFront) ? 'default' : 'pointer' }}
+                onClick={() => { if (!isPending && !isApproved && !uploadingFront) document.getElementById('upload-front')?.click(); }}
+              >
+                <input id="upload-front" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleUpload(e, 'identityFrontUrl')} disabled={isPending || isApproved || uploadingFront} />
+                {uploadingFront ? (
+                  <div style={{ padding: '40px 0', color: 'var(--accent)' }}>Đang tải lên...</div>
+                ) : form.identityFrontUrl ? (
                   <img src={form.identityFrontUrl} alt="Front" style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '8px' }} />
                 ) : (
                   <>
                     <FiUploadCloud size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Dán link ảnh mặt trước vào ô bên dưới</p>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Nhấn để chọn ảnh từ thiết bị</p>
                   </>
                 )}
               </div>
-              <input required type="url" className="input-field" placeholder="https://res.cloudinary.com/.../front.jpg" value={form.identityFrontUrl} onChange={e => setForm({...form, identityFrontUrl: e.target.value})} style={{ marginTop: '12px' }} disabled={isPending || isApproved} />
             </div>
 
             <div>
-              <Label text="URL Ảnh mặt sau Giấy tờ (Cloudinary)" required />
-              <div className="upload-zone" style={{ padding: '30px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '12px', background: 'rgba(0,0,0,0.2)' }}>
-                {form.identityBackUrl ? (
+              <Label text="Ảnh mặt sau Giấy tờ" required />
+              <div 
+                className="upload-zone" 
+                style={{ position: 'relative', padding: '30px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '12px', background: 'rgba(0,0,0,0.2)', cursor: (isPending || isApproved || uploadingBack) ? 'default' : 'pointer' }}
+                onClick={() => { if (!isPending && !isApproved && !uploadingBack) document.getElementById('upload-back')?.click(); }}
+              >
+                <input id="upload-back" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleUpload(e, 'identityBackUrl')} disabled={isPending || isApproved || uploadingBack} />
+                {uploadingBack ? (
+                  <div style={{ padding: '40px 0', color: 'var(--accent)' }}>Đang tải lên...</div>
+                ) : form.identityBackUrl ? (
                   <img src={form.identityBackUrl} alt="Back" style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '8px' }} />
                 ) : (
                   <>
                     <FiUploadCloud size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Dán link ảnh mặt sau vào ô bên dưới</p>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Nhấn để chọn ảnh từ thiết bị</p>
                   </>
                 )}
               </div>
-              <input required type="url" className="input-field" placeholder="https://res.cloudinary.com/.../back.jpg" value={form.identityBackUrl} onChange={e => setForm({...form, identityBackUrl: e.target.value})} style={{ marginTop: '12px' }} disabled={isPending || isApproved} />
             </div>
           </div>
           
