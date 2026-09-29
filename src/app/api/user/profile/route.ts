@@ -18,21 +18,28 @@ export async function PUT(req: Request) {
     if (['male', 'female', 'other'].includes(body.gender)) allowed.gender = body.gender;
     if (body.birthday) allowed.birthday = new Date(body.birthday);
     if (typeof body.avatar === 'string' && body.avatar.trim()) allowed.avatar = body.avatar.trim();
+    if (typeof body.email === 'string' && body.email.trim()) {
+      allowed.email = body.email.trim();
+    }
 
     if (Object.keys(allowed).length === 0) {
       return NextResponse.json({ error: 'Không có dữ liệu hợp lệ để cập nhật' }, { status: 400 });
     }
 
     const updatedUser = await prisma.$transaction(async (tx) => {
-      if (typeof allowed.avatar === 'string') {
-        const current = await tx.user.findUniqueOrThrow({
-          where: { id: session.userId },
-          select: { avatar: true },
-        });
-        if (allowed.avatar !== current.avatar) {
-          await claimAvatarUpload(tx, session.userId, allowed.avatar);
-        }
+      const current = await tx.user.findUniqueOrThrow({
+        where: { id: session.userId },
+        select: { avatar: true, email: true },
+      });
+
+      if (typeof allowed.avatar === 'string' && allowed.avatar !== current.avatar) {
+        await claimAvatarUpload(tx, session.userId, allowed.avatar);
       }
+
+      if (allowed.email && allowed.email !== current.email) {
+        allowed.isEmailVerified = false;
+      }
+
       return tx.user.update({ where: { id: session.userId }, data: allowed });
     });
 

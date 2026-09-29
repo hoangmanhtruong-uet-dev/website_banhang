@@ -10,6 +10,7 @@ interface User {
   role: 'user' | 'admin' | 'shipper';
   isSeller: boolean;
   isEmailVerified?: boolean;
+  isTwoFactorEnabled?: boolean;
   phone?: string;
   gender?: string;
   birthday?: string;
@@ -20,7 +21,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  login: (email: string, password: string, twoFactorCode?: string) => Promise<{ ok: boolean; requires2FA?: boolean; error?: string }>;
   register: (name: string, email: string, password: string, confirmPassword: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
@@ -48,15 +49,19 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  login: async (email, password) => {
+  login: async (email, password, twoFactorCode?: string) => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, twoFactorCode }),
       });
 
       const data = await res.json();
+
+      if (res.status === 403 && data.requires2FA) {
+        return { ok: false, requires2FA: true };
+      }
 
       if (!res.ok) {
         return { ok: false, error: data.error || 'Đăng nhập thất bại' };

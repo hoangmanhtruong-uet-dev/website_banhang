@@ -80,6 +80,8 @@ model User {
   role                String               @default("user") // "user" | "admin" | "shipper" | "editor" | "sale" | "warehouse"
   isActive            Boolean              @default(true)
   isEmailVerified     Boolean              @default(false)
+  isTwoFactorEnabled  Boolean              @default(false)
+  twoFactorSecret     String?
   isSeller            Boolean              @default(false)
   phone               String?
   gender              String? // "male" | "female" | "other"

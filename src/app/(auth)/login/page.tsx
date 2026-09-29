@@ -25,9 +25,20 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const result = await login(email, password);
+    let code: string | undefined;
+    let loginResult = await login(email, password);
 
-    if (result.ok) {
+    if (loginResult.requires2FA) {
+      const input = prompt('Tài khoản của bạn đã bật 2FA. Vui lòng nhập mã gồm 6 chữ số từ ứng dụng Authenticator:');
+      if (!input) {
+        setLoading(false);
+        return;
+      }
+      code = input;
+      loginResult = await login(email, password, code);
+    }
+
+    if (loginResult.ok) {
       const roleName = activeTab === 'admin' ? 'Quản trị viên' : activeTab === 'shipper' ? 'Người giao hàng' : 'Người dùng';
       addToast(`Đăng nhập thành công với tư cách ${roleName}! 🎉`);
       
@@ -42,7 +53,7 @@ export default function LoginPage() {
       }
       router.refresh();
     } else {
-      setError(result.error || 'Thông tin đăng nhập không chính xác');
+      setError(loginResult.error || 'Thông tin đăng nhập không chính xác');
     }
     setLoading(false);
   };

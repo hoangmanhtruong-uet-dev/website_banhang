@@ -45,6 +45,18 @@ export async function POST(req: Request) {
       );
     }
 
+    if (user.isTwoFactorEnabled) {
+      const { twoFactorCode } = body;
+      if (!twoFactorCode) {
+        return NextResponse.json({ requires2FA: true }, { status: 403 });
+      }
+      const { authenticator } = await import('otplib');
+      const isValid = authenticator.verify({ token: twoFactorCode, secret: user.twoFactorSecret! });
+      if (!isValid) {
+        return NextResponse.json({ error: 'Mã xác thực 2FA không chính xác' }, { status: 401 });
+      }
+    }
+
     const accessToken = await AuthService.signAccessToken({
       userId: user.id,
       email: user.email,

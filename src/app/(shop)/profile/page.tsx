@@ -27,6 +27,11 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // 2FA States
+  const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
+  const [twoFactorQrUrl, setTwoFactorQrUrl] = useState<string | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+
   useEffect(() => {
     if (user) {
       let d = '29', m = '09', y = '1998';
@@ -133,11 +138,23 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '14px', color: '#fff' }}>{formData.email}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>
-                  <FiCheckCircle /> Đã xác thực
-                </span>
+                {user?.isEmailVerified ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>
+                    <FiCheckCircle /> Đã xác thực
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>
+                    Chưa xác thực
+                  </span>
+                )}
               </div>
-              <span style={{ color: '#ef4444', fontSize: '13px', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}>Thay đổi</span>
+              <span onClick={() => {
+                const newEmail = prompt('Nhập địa chỉ Email mới của bạn:', formData.email);
+                if (newEmail && newEmail.trim() !== formData.email && newEmail.includes('@')) {
+                  setFormData(prev => ({...prev, email: newEmail.trim()}));
+                  addToast('Đã đổi email tạm thời. Bấm Lưu thay đổi để xác nhận.');
+                }
+              }} style={{ color: '#ef4444', fontSize: '13px', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}>Thay đổi</span>
             </div>
           </div>
 
@@ -145,7 +162,6 @@ export default function ProfilePage() {
             <label style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>Số điện thoại</label>
             <div style={{ display: 'flex', gap: '12px' }}>
               <input className="input-field" placeholder="0908 688 888" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} style={{ flex: 1 }} />
-              <button type="button" className="btn-secondary" style={{ padding: '0 20px', borderRadius: '12px', whiteSpace: 'nowrap' }}>Cập nhật</button>
             </div>
           </div>
 
@@ -218,7 +234,6 @@ export default function ProfilePage() {
                 return;
               }
               setAvatarPreview(URL.createObjectURL(file));
-              setFormData((prev) => ({ ...prev, avatar: undefined }));
               (async () => {
                 try {
                   setUploadingAvatar(true);
@@ -240,7 +255,19 @@ export default function ProfilePage() {
                   setFormData((prev) => ({ ...prev, avatar: upData.url }));
                   setAvatarPreview(upData.url);
                   setAvatarLoadError(false);
-                  addToast('Đã chọn ảnh thành công');
+                  
+                  // Auto-save avatar to profile
+                  const saveRes = await fetch('/api/user/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ avatar: upData.url }),
+                  });
+                  if (saveRes.ok) {
+                    addToast('Đã lưu ảnh đại diện mới.');
+                    await fetchMe();
+                  } else {
+                    addToast('Lỗi khi lưu ảnh đại diện.');
+                  }
                 } catch {
                   addToast('Lỗi kết nối server khi upload ảnh', 'error');
                   setAvatarPreview(null);
@@ -263,15 +290,17 @@ export default function ProfilePage() {
           {/* 2FA Card */}
           <div style={{ width: '100%', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: user?.isTwoFactorEnabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: user?.isTwoFactorEnabled ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <FiShield size={16} />
               </div>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>Xác thực 2 lớp (2FA)</div>
-                <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 600, marginTop: '2px' }}>Đang bảo vệ</div>
+                <div style={{ fontSize: '11px', color: user?.isTwoFactorEnabled ? '#10b981' : '#ef4444', fontWeight: 600, marginTop: '2px' }}>
+                  {user?.isTwoFactorEnabled ? 'Đang bảo vệ' : 'Chưa bật'}
+                </div>
               </div>
             </div>
-            <button style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}>
+            <button type="button" onClick={() => setIs2FAModalOpen(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}>
               Cài đặt
             </button>
           </div>
@@ -279,6 +308,86 @@ export default function ProfilePage() {
         </div>
 
       </form>
+
+      {/* 2FA Setup Modal */}
+      {is2FAModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(5px)' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '400px', padding: '32px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>Thiết lập 2FA</h2>
+            
+            {!twoFactorQrUrl && !user?.isTwoFactorEnabled ? (
+              <>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Bật xác thực 2 lớp để bảo vệ tài khoản tốt hơn.</p>
+                <button type="button" onClick={async () => {
+                  try {
+                    const res = await fetch('/api/auth/2fa/generate', { method: 'POST' });
+                    const data = await res.json();
+                    if (res.ok) setTwoFactorQrUrl(data.qrUrl);
+                    else addToast(data.error || 'Lỗi tạo mã QR', 'error');
+                  } catch { addToast('Lỗi kết nối', 'error'); }
+                }} className="btn-primary" style={{ padding: '12px', borderRadius: '12px', fontWeight: 600 }}>
+                  Tạo mã QR
+                </button>
+              </>
+            ) : twoFactorQrUrl && !user?.isTwoFactorEnabled ? (
+              <>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>1. Quét mã QR bằng Google Authenticator hoặc Authy.</p>
+                <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', display: 'flex', justifyContent: 'center' }}>
+                  <img src={twoFactorQrUrl} alt="2FA QR Code" width={200} height={200} />
+                </div>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>2. Nhập mã 6 số từ ứng dụng:</p>
+                <input autoFocus className="input-field" placeholder="123456" maxLength={6} value={twoFactorCode} onChange={(e) => setTwoFactorCode(e.target.value)} style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '20px', fontWeight: 700 }} />
+                <button type="button" onClick={async () => {
+                  try {
+                    const res = await fetch('/api/auth/2fa/verify', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ token: twoFactorCode })
+                    });
+                    if (res.ok) {
+                      addToast('Bật 2FA thành công! 🛡️');
+                      setIs2FAModalOpen(false);
+                      setTwoFactorQrUrl(null);
+                      setTwoFactorCode('');
+                      await fetchMe();
+                    } else {
+                      const data = await res.json();
+                      addToast(data.error || 'Mã không đúng', 'error');
+                    }
+                  } catch { addToast('Lỗi kết nối', 'error'); }
+                }} className="btn-primary" style={{ padding: '12px', borderRadius: '12px', fontWeight: 600 }}>
+                  Xác nhận bật 2FA
+                </button>
+              </>
+            ) : user?.isTwoFactorEnabled ? (
+              <>
+                <div style={{ textAlign: 'center', color: '#10b981', marginBottom: '16px' }}>
+                  <FiShield size={48} style={{ marginBottom: '12px' }} />
+                  <div style={{ fontSize: '16px', fontWeight: 700 }}>2FA đang được bật</div>
+                </div>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', textAlign: 'center' }}>Tài khoản của bạn đang được bảo vệ an toàn.</p>
+                <button type="button" onClick={async () => {
+                  if (!confirm('Bạn có chắc muốn tắt 2FA? Tài khoản sẽ kém an toàn hơn.')) return;
+                  try {
+                    const res = await fetch('/api/auth/2fa/disable', { method: 'POST' });
+                    if (res.ok) {
+                      addToast('Đã tắt 2FA.');
+                      setIs2FAModalOpen(false);
+                      await fetchMe();
+                    }
+                  } catch { addToast('Lỗi kết nối', 'error'); }
+                }} className="btn-secondary" style={{ padding: '12px', borderRadius: '12px', fontWeight: 600, color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}>
+                  Tắt 2FA
+                </button>
+              </>
+            ) : null}
+
+            <button type="button" onClick={() => setIs2FAModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', padding: '8px' }}>
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
