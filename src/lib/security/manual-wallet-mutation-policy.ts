@@ -16,6 +16,10 @@ export function assertManualWalletMutationAllowed(
   operation: ManualWalletMutation,
   route: string,
 ): void {
+  // Allow users to top up their demo wallet even in production to test the checkout flow.
+  if (operation === 'demo-top-up') return;
+
+  // Block other manual balance adjustments (e.g. admin actions) in production.
   if (process.env.NODE_ENV !== 'production') return;
   throw new ManualWalletMutationDisabledError(operation, route);
 }
